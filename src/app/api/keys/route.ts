@@ -11,20 +11,17 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // For now, return mock data since we're using the external backend
-    const mockKeys = [
-      {
-        id: "1",
-        name: "Production Key",
-        key: "nxq_abc123...",
-        environment: "production",
-        isActive: true,
-        lastUsed: new Date().toISOString(),
-        createdAt: new Date().toISOString()
+    // Fetch API keys for the authenticated user
+    const apiKeys = await db.apiKey.findMany({
+      where: {
+        userId: session.user.id
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
-    ]
+    })
 
-    return NextResponse.json(mockKeys)
+    return NextResponse.json(apiKeys)
   } catch (error) {
     console.error("Error fetching API keys:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

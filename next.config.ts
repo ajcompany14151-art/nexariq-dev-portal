@@ -5,22 +5,20 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // 禁用 Next.js 热重载，由 nodemon 处理重编译
   reactStrictMode: false,
-  eslint: {
-    // Ignore ESLint errors during builds
-    ignoreDuringBuilds: true,
-  },
-  // Optimize for production deployment on Vercel
-  output: 'standalone',
-  // Disable webpack's hot module replacement only in development
   webpack: (config, { dev }) => {
     if (dev) {
-      // Disable webpack's hot module replacement
+      // 禁用 webpack 的热模块替换
       config.watchOptions = {
-        ignored: ['**/*'], // Ignore all file changes
+        ignored: ['**/*'], // 忽略所有文件变化
       };
     }
     return config;
+  },
+  eslint: {
+    // 构建时忽略ESLint错误
+    ignoreDuringBuilds: true,
   },
 };
 
