@@ -1,17 +1,15 @@
 {
-  "buildCommand": "npm run build && npx prisma generate",
-  "env": {
-    "DATABASE_URL": "@database-url",
-    "NEXTAUTH_SECRET": "@nextauth-secret",
-    "NEXTAUTH_URL": "@nextauth-url",
-    "GOOGLE_CLIENT_ID": "@google-client-id",
-    "GOOGLE_CLIENT_SECRET": "@google-client-secret",
-    "GITHUB_ID": "@github-id",
-    "GITHUB_SECRET": "@github-secret"
-  },
+  "buildCommand": "prisma generate && next build",
   "functions": {
-    "src/app/api/**/*.ts": {
+    "app/api/**/*.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    }
+  ]
 }

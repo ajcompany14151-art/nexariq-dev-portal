@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { io } from 'socket.io-client';
+// import { io } from 'socket.io-client'; // Disabled for Vercel deployment
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,27 +20,13 @@ export default function SocketDemo() {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const socketInstance = io({
-      path: '/api/socketio',
-    });
-
-    setSocket(socketInstance);
-
-    socketInstance.on('connect', () => {
-      setIsConnected(true);
-    });
-
-    socketInstance.on('disconnect', () => {
-      setIsConnected(false);
-    });
-
-    socketInstance.on('message', (msg: Message) => {
-      setMessages(prev => [...prev, msg]);
-    });
-
-    return () => {
-      socketInstance.disconnect();
-    };
+    // Socket.IO disabled for Vercel deployment
+    // TODO: Replace with Vercel-compatible real-time solution
+    setMessages([{
+      text: "WebSocket functionality disabled for Vercel deployment",
+      senderId: "system",
+      timestamp: new Date().toISOString()
+    }]);
   }, []);
 
   const sendMessage = () => {

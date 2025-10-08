@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   
   try {
     // Get API key from Authorization header
-    const headersList = headers()
+    const headersList = await headers()
     const authHeader = headersList.get('authorization')
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -33,7 +33,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check IP whitelist if configured
-    const clientIP = request.ip || request.headers.get('x-forwarded-for') || 'unknown'
+    const clientIP = request.headers.get('x-forwarded-for') || 
+                     request.headers.get('x-real-ip') || 
+                     request.headers.get('cf-connecting-ip') || 
+                     'unknown'
     const ipWhitelists = await db.ipWhitelist.findMany({
       where: {
         userId: keyRecord.userId,
@@ -121,7 +124,10 @@ export async function POST(request: NextRequest) {
             method: 'POST',
             statusCode: 500,
             tokensUsed: 0,
-            ipAddress: request.ip || 'unknown',
+            ipAddress: request.headers.get('x-forwarded-for') || 
+                      request.headers.get('x-real-ip') || 
+                      request.headers.get('cf-connecting-ip') || 
+                      'unknown',
             userAgent: request.headers.get('user-agent') || undefined,
             responseTime: Date.now() - startTime
           }

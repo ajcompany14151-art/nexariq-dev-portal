@@ -6,9 +6,12 @@ import { db } from "@/lib/db"
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // For type safety, cast the user object
+    const userId = (session.user as any).id || session.user.email
 
     const { searchParams } = new URL(request.url)
     const period = searchParams.get('period') || '30d'
@@ -34,7 +37,7 @@ export async function GET(request: NextRequest) {
     // Get usage logs for the period
     const usageLogs = await db.usageLog.findMany({
       where: {
-        userId: session.user.id,
+        userId: userId,
         createdAt: {
           gte: startDate
         }
