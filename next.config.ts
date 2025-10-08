@@ -19,14 +19,12 @@ const nextConfig: NextConfig = {
   },
   // Environment-specific webpack config
   webpack: (config, { dev, isServer }) => {
-    if (dev && !isServer) {
-      // Development-specific configurations only
-      config.watchOptions = {
-        ignored: ['**/*'], // This was for nodemon setup
-      };
-    }
-    return config;
-  },
-};
+  if (dev && !isServer) {
+    config.watchOptions = {
+      ignored: ['**/*'], // This was for nodemon setup
+    };
+  }
+  return config;
+},
 
 export default nextConfig;
