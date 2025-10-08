@@ -1,30 +1,31 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   typescript: {
-    // For production deployment, enable type checking
-    ignoreBuildErrors: process.env.NODE_ENV === "development",
+    // Remove this in production - fix type errors instead
+    ignoreBuildErrors: false,
   },
   reactStrictMode: true,
   eslint: {
-    // Temporarily ignore during builds for deployment
-    ignoreDuringBuilds: true,
+    // Only ignore during builds if absolutely necessary
+    ignoreDuringBuilds: false,
   },
-  // Enable experimental features if needed
+  // Prisma support
   serverExternalPackages: ["@prisma/client"],
-  // Optimize images
+  
+  // Image optimization
   images: {
     domains: ['avatars.githubusercontent.com', 'lh3.googleusercontent.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+      },
+    ],
   },
-  // Environment-specific webpack config
-  webpack: (config, { dev, isServer }) => {
-  if (dev && !isServer) {
-    config.watchOptions = {
-      ignored: ['**/*'], // This was for nodemon setup
-    };
-  }
-  return config;
-},
+  
+  // Output configuration for Vercel
+  output: 'standalone',
+};
 
 export default nextConfig;
