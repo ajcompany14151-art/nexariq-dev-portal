@@ -49,14 +49,6 @@ export async function GET(request: NextRequest) {
     const totalTokensUsed = usageLogs.reduce((sum, log) => sum + log.tokensUsed, 0)
     const averageResponseTime = usageLogs.reduce((sum, log) => sum + (log.responseTime || 0), 0) / totalApiCalls || 0
     const successRate = usageLogs.filter(log => log.statusCode < 400).length / totalApiCalls * 100 || 0
-    
-    // Count active API keys
-    const activeKeys = await db.apiKey.count({
-      where: {
-        userId: session.user.id,
-        isActive: true
-      }
-    })
 
     // Group by day for chart data
     const dailyStats = usageLogs.reduce((acc, log) => {
@@ -106,8 +98,7 @@ export async function GET(request: NextRequest) {
         totalApiCalls,
         totalTokensUsed,
         averageResponseTime: Math.round(averageResponseTime),
-        successRate: Math.round(successRate * 100) / 100,
-        activeKeys
+        successRate: Math.round(successRate * 100) / 100
       },
       chartData,
       topEndpoints,

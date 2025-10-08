@@ -3,22 +3,31 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   typescript: {
-    ignoreBuildErrors: true,
+    // For production deployment, enable type checking
+    ignoreBuildErrors: process.env.NODE_ENV === "development",
   },
-  // 禁用 Next.js 热重载，由 nodemon 处理重编译
-  reactStrictMode: false,
-  webpack: (config, { dev }) => {
-    if (dev) {
-      // 禁用 webpack 的热模块替换
+  reactStrictMode: true,
+  eslint: {
+    // Only ignore during development
+    ignoreDuringBuilds: process.env.NODE_ENV === "development",
+  },
+  // Enable experimental features if needed
+  experimental: {
+    serverComponentsExternalPackages: ["@prisma/client"],
+  },
+  // Optimize images
+  images: {
+    domains: ['avatars.githubusercontent.com', 'lh3.googleusercontent.com'],
+  },
+  // Environment-specific webpack config
+  webpack: (config, { dev, isServer }) => {
+    if (dev && !isServer) {
+      // Development-specific configurations only
       config.watchOptions = {
-        ignored: ['**/*'], // 忽略所有文件变化
+        ignored: ['**/*'], // This was for nodemon setup
       };
     }
     return config;
-  },
-  eslint: {
-    // 构建时忽略ESLint错误
-    ignoreDuringBuilds: true,
   },
 };
 
