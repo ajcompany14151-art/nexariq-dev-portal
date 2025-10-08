@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
 import { db } from "@/lib/db"
+import { supabase } from "@/lib/supabase"
 import bcrypt from "bcryptjs"
 
 export const authOptions: NextAuthOptions = {
