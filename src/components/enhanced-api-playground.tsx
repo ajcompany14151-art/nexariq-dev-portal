@@ -1,18 +1,19 @@
-"use client"
+// src/components/enhanced-api-playground.tsx
+"use client";
 
-import { useState, useEffect, useRef } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
+import { useState, useEffect, useRef } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { 
   Send, 
   Copy, 
@@ -39,45 +40,59 @@ import {
   Lightbulb,
   TrendingUp,
   Clock,
-  Cpu
-} from "lucide-react"
-import { toast } from "sonner"
-import { motion, AnimatePresence } from "framer-motion"
+  Cpu,
+  Key
+} from "lucide-react";
+import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
+import { useSession } from "next-auth/react";
 
 interface Message {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  timestamp: Date
-  tokens?: number
-  model?: string
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+  tokens?: number;
+  model?: string;
 }
 
 interface Conversation {
-  id: string
-  title: string
-  messages: Message[]
-  settings: PlaygroundSettings
-  createdAt: Date
-  updatedAt: Date
+  id: string;
+  title: string;
+  messages: Message[];
+  settings: PlaygroundSettings;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface PlaygroundSettings {
-  model: string
-  temperature: number
-  maxTokens: number
-  topP: number
-  topK: number
-  stream: boolean
-  systemPrompt: string
+  model: string;
+  temperature: number;
+  maxTokens: number;
+  topP: number;
+  topK: number;
+  stream: boolean;
+  systemPrompt: string;
+}
+
+interface ApiKey {
+  id: string;
+  name: string;
+  key: string;
+  environment: string;
+  isActive: boolean;
+  lastUsed: string | null;
+  createdAt: string;
+  expires: string | null;
 }
 
 export function EnhancedApiPlayground() {
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null)
-  const [inputMessage, setInputMessage] = useState("")
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const { data: session } = useSession();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [settings, setSettings] = useState<PlaygroundSettings>({
     model: "lynxa-pro",
     temperature: 0.7,
@@ -86,17 +101,41 @@ export function EnhancedApiPlayground() {
     topK: 40,
     stream: false,
     systemPrompt: "You are Lynxa Pro, a helpful AI assistant. Provide clear, accurate, and thoughtful responses."
-  })
-  const [activeTab, setActiveTab] = useState("chat")
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  });
+  const [activeTab, setActiveTab] = useState("chat");
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [selectedApiKey, setSelectedApiKey] = useState<string>("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    scrollToBottom()
-  }, [currentConversation?.messages])
+    scrollToBottom();
+  }, [currentConversation?.messages]);
+
+  useEffect(() => {
+    if (session) {
+      fetchApiKeys();
+    }
+  }, [session]);
+
+  const fetchApiKeys = async () => {
+    try {
+      const response = await fetch("/api/keys");
+      if (response.ok) {
+        const data = await response.json();
+        setApiKeys(data);
+        if (data.length > 0 && !selectedApiKey) {
+          setSelectedApiKey(data[0].id);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch API keys:", error);
+      toast.error("Failed to fetch API keys");
+    }
+  };
 
   const createNewConversation = () => {
     const newConversation: Conversation = {
@@ -106,47 +145,58 @@ export function EnhancedApiPlayground() {
       settings: { ...settings },
       createdAt: new Date(),
       updatedAt: new Date()
-    }
-    setConversations(prev => [newConversation, ...prev])
-    setCurrentConversation(newConversation)
-  }
+    };
+    setConversations(prev => [newConversation, ...prev]);
+    setCurrentConversation(newConversation);
+  };
 
   const deleteConversation = (id: string) => {
-    setConversations(prev => prev.filter(conv => conv.id !== id))
+    setConversations(prev => prev.filter(conv => conv.id !== id));
     if (currentConversation?.id === id) {
-      setCurrentConversation(null)
+      setCurrentConversation(null);
     }
-  }
+  };
 
   const sendMessage = async () => {
-    if (!inputMessage.trim() || isGenerating) return
+    if (!inputMessage.trim() || isGenerating || !selectedApiKey) {
+      if (!selectedApiKey) {
+        toast.error("Please select an API key");
+      }
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
       content: inputMessage.trim(),
       timestamp: new Date()
-    }
+    };
 
     if (!currentConversation) {
-      createNewConversation()
+      createNewConversation();
     }
 
     const updatedConversation = {
       ...currentConversation!,
       messages: [...(currentConversation?.messages || []), userMessage],
       updatedAt: new Date()
-    }
+    };
 
-    setCurrentConversation(updatedConversation)
+    setCurrentConversation(updatedConversation);
     setConversations(prev => prev.map(conv => 
       conv.id === updatedConversation.id ? updatedConversation : conv
-    ))
+    ));
 
-    setInputMessage("")
-    setIsGenerating(true)
+    setInputMessage("");
+    setIsGenerating(true);
 
     try {
+      // Find the selected API key
+      const apiKey = apiKeys.find(k => k.id === selectedApiKey);
+      if (!apiKey) {
+        throw new Error("Selected API key not found");
+      }
+
       // Prepare messages for API
       const messages = [
         ...(settings.systemPrompt ? [{ role: "system" as const, content: settings.systemPrompt }] : []),
@@ -154,13 +204,13 @@ export function EnhancedApiPlayground() {
           role: msg.role,
           content: msg.content
         }))
-      ]
+      ];
 
       const response = await fetch("https://lynxa-pro-backend.vercel.app/api/lynxa", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer demo-key"
+          "Authorization": `Bearer ${apiKey.key}`
         },
         body: JSON.stringify({
           model: settings.model,
@@ -171,9 +221,9 @@ export function EnhancedApiPlayground() {
           stream: settings.stream,
           messages
         })
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -182,94 +232,101 @@ export function EnhancedApiPlayground() {
         timestamp: new Date(),
         tokens: data.usage?.total_tokens,
         model: data.model
-      }
+      };
 
       const finalConversation = {
         ...updatedConversation,
         messages: [...updatedConversation.messages, assistantMessage],
         updatedAt: new Date()
-      }
+      };
 
-      setCurrentConversation(finalConversation)
+      setCurrentConversation(finalConversation);
       setConversations(prev => prev.map(conv => 
         conv.id === finalConversation.id ? finalConversation : conv
-      ))
+      ));
+
+      // Update the last used timestamp for the API key
+      await fetch(`/api/keys/${selectedApiKey}/usage`, {
+        method: "POST"
+      });
 
     } catch (error) {
-      console.error("API Error:", error)
+      console.error("API Error:", error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: "I apologize, but I encountered an error while processing your request. Please check your connection and try again.",
         timestamp: new Date()
-      }
+      };
 
       const errorConversation = {
         ...updatedConversation,
         messages: [...updatedConversation.messages, errorMessage],
         updatedAt: new Date()
-      }
+      };
 
-      setCurrentConversation(errorConversation)
+      setCurrentConversation(errorConversation);
       setConversations(prev => prev.map(conv => 
         conv.id === errorConversation.id ? errorConversation : conv
-      ))
+      ));
     } finally {
-      setIsGenerating(false)
+      setIsGenerating(false);
     }
-  }
+  };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    toast.success("Copied to clipboard!")
-    setTimeout(() => setCopied(false), 2000)
-  }
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success("Copied to clipboard!");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const exportConversation = () => {
-    if (!currentConversation) return
+    if (!currentConversation) return;
     
     const exportData = {
       conversation: currentConversation,
       exportedAt: new Date().toISOString()
-    }
+    };
     
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `conversation-${currentConversation.id}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `conversation-${currentConversation.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
     
-    toast.success("Conversation exported!")
-  }
+    toast.success("Conversation exported!");
+  };
 
   const clearConversation = () => {
-    if (!currentConversation) return
+    if (!currentConversation) return;
     
     const clearedConversation = {
       ...currentConversation,
       messages: [],
       updatedAt: new Date()
-    }
+    };
     
-    setCurrentConversation(clearedConversation)
+    setCurrentConversation(clearedConversation);
     setConversations(prev => prev.map(conv => 
       conv.id === clearedConversation.id ? clearedConversation : conv
-    ))
-  }
+    ));
+  };
 
   const generateCodeExample = (language: string) => {
     const messages = currentConversation?.messages.map(msg => ({
       role: msg.role,
       content: msg.content
-    })) || []
+    })) || [];
+
+    const apiKey = apiKeys.find(k => k.id === selectedApiKey);
 
     switch (language) {
       case "curl":
         return `curl -X POST https://lynxa-pro-backend.vercel.app/api/lynxa \\
-  -H "Authorization: Bearer <your-api-key>" \\
+  -H "Authorization: Bearer ${apiKey?.key || '<your-api-key>'}" \\
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify({
     model: settings.model,
@@ -282,7 +339,7 @@ export function EnhancedApiPlayground() {
         return `const response = await fetch('https://lynxa-pro-backend.vercel.app/api/lynxa', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer <your-api-key>',
+    'Authorization': 'Bearer ${apiKey?.key || '<your-api-key>'}',
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
@@ -302,7 +359,7 @@ console.log(data.choices[0].message.content);`
 response = requests.post(
     'https://lynxa-pro-backend.vercel.app/api/lynxa',
     headers={
-        'Authorization': 'Bearer <your-api-key>',
+        'Authorization': 'Bearer ${apiKey?.key || '<your-api-key>'}',
         'Content-Type': 'application/json'
     },
     json={
@@ -319,7 +376,7 @@ print(data['choices'][0]['message']['content'])`
       default:
         return ""
     }
-  }
+  };
 
   return (
     <div className="h-[calc(100vh-8rem)] flex gap-6">
@@ -360,8 +417,8 @@ print(data['choices'][0]['message']['content'])`
                         variant="ghost"
                         size="sm"
                         onClick={(e) => {
-                          e.stopPropagation()
-                          deleteConversation(conv.id)
+                          e.stopPropagation();
+                          deleteConversation(conv.id);
                         }}
                       >
                         <Trash2 className="w-3 h-3" />
@@ -371,6 +428,40 @@ print(data['choices'][0]['message']['content'])`
                 ))}
               </div>
             </ScrollArea>
+          </CardContent>
+        </Card>
+
+        {/* API Key Selection */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center">
+              <Key className="w-4 h-4 mr-2" />
+              API Key
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Select value={selectedApiKey} onValueChange={setSelectedApiKey}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select an API key" />
+              </SelectTrigger>
+              <SelectContent>
+                {apiKeys.map((apiKey) => (
+                  <SelectItem key={apiKey.id} value={apiKey.id}>
+                    <div className="flex items-center">
+                      <span>{apiKey.name}</span>
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        {apiKey.environment}
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {apiKeys.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                No API keys available. Create one in your profile.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -416,6 +507,11 @@ print(data['choices'][0]['message']['content'])`
                   <Bot className="w-5 h-5 text-blue-600" />
                   <CardTitle>Lynxa Pro AI</CardTitle>
                   <Badge variant="secondary">{settings.model}</Badge>
+                  {selectedApiKey && (
+                    <Badge variant="outline">
+                      {apiKeys.find(k => k.id === selectedApiKey)?.name}
+                    </Badge>
+                  )}
                 </div>
                 <CardDescription>
                   Powered by advanced AI technology
@@ -502,14 +598,14 @@ print(data['choices'][0]['message']['content'])`
                     className="flex-1 min-h-[60px] resize-none"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        sendMessage()
+                        e.preventDefault();
+                        sendMessage();
                       }
                     }}
                   />
                   <Button
                     onClick={sendMessage}
-                    disabled={!inputMessage.trim() || isGenerating}
+                    disabled={!inputMessage.trim() || isGenerating || !selectedApiKey}
                     className="self-end"
                   >
                     {isGenerating ? (
@@ -708,5 +804,5 @@ print(data['choices'][0]['message']['content'])`
         </Tabs>
       </div>
     </div>
-  )
+  );
 }
