@@ -34,6 +34,8 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
     setLoading(true);
 
     try {
+      console.log("Submitting API key creation request:", formData);
+      
       const response = await fetch("/api/keys", {
         method: "POST",
         headers: {
@@ -42,16 +44,21 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
         body: JSON.stringify(formData)
       });
 
+      console.log("Response status:", response.status);
+      
       if (!response.ok) {
         const error = await response.json();
+        console.error("Error response:", error);
         throw new Error(error.error || "Failed to create API key");
       }
 
       const data = await response.json();
+      console.log("API key created:", data);
       setCreatedKey(data);
       onKeyCreated?.();
       toast.success("API key created successfully!");
     } catch (error: any) {
+      console.error("Error creating API key:", error);
       toast.error(error.message || "Failed to create API key");
     } finally {
       setLoading(false);
