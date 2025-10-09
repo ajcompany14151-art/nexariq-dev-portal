@@ -70,6 +70,7 @@ model User {
   subscriptions Subscription[]
   usageLogs     UsageLog[]
   ipWhitelists  IpWhitelist[]
+  rateLimits    RateLimit[]
   
   @@map("users")
 }
