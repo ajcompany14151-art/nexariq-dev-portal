@@ -3,10 +3,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { env } from "@/lib/env"
-import { RateLimiter } from "@/lib/rate-limiter"
-
-const rateLimiter = new RateLimiter();
 
 export async function GET() {
   try {
@@ -61,30 +57,61 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "API key name is required" }, { status: 400 })
     }
 
-    // Find the user
-    const user = await db.user.findUnique({
-      where: { email: session.user.email },
-      include: {
-        apiKeys: {
-          where: { isActive: true }
-        }
-      }
+    // Find or create the user
+    let user = await db.user.findUnique({
+      where: { email: session.user.email }
     })
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      // Create user if not found
+      user = await db.user.create({
+        data: {
+          email: session.user.email,
+          name: session.user.name || "Unknown User",
+          image: session.user.image || "",
+          provider: "google",
+          providerId: session.user.email,
+          lastLoginAt: new Date()
+        }
+      })
     }
 
     // Check if user has reached the maximum number of API keys
+    const existingKeys = await db.apiKey.count({
+      where: { 
+        userId: user.id,
+        isActive: true 
+      }
+    })
+
     const MAX_FREE_KEYS = 5;
-    if (user.apiKeys.length >= MAX_FREE_KEYS) {
+    if (existingKeys >= MAX_FREE_KEYS) {
       return NextResponse.json({ 
         error: `Maximum number of API keys (${MAX_FREE_KEYS}) reached. Please upgrade your plan.` 
       }, { status: 429 })
     }
 
     // Generate a unique API key
-    const apiKey = `nxq_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
+    const generateApiKey = () => {
+      const prefix = "nxq_"
+      const randomPart = Math.random().toString(36).substring(2, 15) + 
+                        Math.random().toString(36).substring(2, 15)
+      return prefix + randomPart
+    }
+
+    let apiKey = generateApiKey()
+    
+    // Ensure the API key is unique
+    let existingKey = await db.apiKey.findUnique({
+      where: { key: apiKey }
+    })
+    
+    while (existingKey) {
+      apiKey = generateApiKey()
+      existingKey = await db.apiKey.findUnique({
+        where: { key: apiKey }
+      })
+    }
 
     // Set expiration date (30 days from now)
     const expires = new Date()
@@ -104,12 +131,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Initialize rate limits for the new key
-    await rateLimiter.initializeRateLimits(newApiKey.id, newApiKey.userId, {
-      perMinute: newApiKey.rateLimitPerMinute,
-      perHour: newApiKey.rateLimitPerHour,
-      perDay: newApiKey.rateLimitPerDay
-    })
+    console.log("API Key created successfully:", newApiKey)
 
     return NextResponse.json(newApiKey)
   } catch (error) {
