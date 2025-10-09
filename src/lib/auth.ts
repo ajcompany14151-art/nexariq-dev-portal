@@ -1,73 +1,65 @@
-import { NextAuthOptions } from "next-auth"
-import { PrismaAdapter } from "@next-auth/prisma-adapter"
-import CredentialsProvider from "next-auth/providers/credentials"
-import GoogleProvider from "next-auth/providers/google"
-import GitHubProvider from "next-auth/providers/github"
-import { db } from "@/lib/db"
-import bcrypt from "bcryptjs"
+// src/lib/auth.ts
+import NextAuth from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
+import { env } from "./env";
 
-export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(db),
+export const authOptions = {
   providers: [
-    CredentialsProvider({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null
-        }
-
-        const user = await db.user.findUnique({
-          where: {
-            email: credentials.email
-          }
-        })
-
-        if (!user) {
-          return null
-        }
-
-        // For demo purposes, we'll skip password verification
-        // In production, you'd verify the password here
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        }
-      }
-    }),
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    GitHubProvider({
-      clientId: process.env.GITHUB_ID!,
-      clientSecret: process.env.GITHUB_SECRET!,
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
     }),
   ],
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ user, account, profile }) {
+      console.log("signIn callback:", { user, account, profile });
+      return true;
+    },
+    async jwt({ token, user, account, profile }) {
       if (user) {
-        token.role = (user as any).role || 'USER'
+        token.id = user.id || user.email; // Fallback for ID
+        token.name = user.name;
+        token.email = user.email;
+        if (account?.provider === "google") {
+          token.googleProfile = profile;
+        }
       }
-      return token
+      return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.sub!
-        session.user.role = token.role as string
+      if (token) {
+        session.user.id = token.id as string;
+        session.user.name = token.name as string;
+        session.user.email = token.email as string;
       }
-      return session
+      return session;
+    },
+    async redirect({ url, baseUrl }) {
+      console.log("redirect callback - url:", url, "baseUrl:", baseUrl);
+      // If the url is within the site, redirect to it
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      // Otherwise redirect to the home page
+      return baseUrl;
     },
   },
   pages: {
-    signIn: "/auth/signin",
+    signIn: "/signin", // Update to use the single signin page
   },
-}
+  debug: process.env.NODE_ENV === "development",
+};
+
+const handler = NextAuth(authOptions);
+export { handler as GET, handler as POST };
