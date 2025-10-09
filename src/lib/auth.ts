@@ -26,7 +26,7 @@ export const authOptions = {
       // Create or update user in database
       if (account?.provider === "google" && user.email) {
         try {
-          const response = await fetch(`${env.NEXTAUTH_URL}/api/auth/user`, {
+          const response = await fetch(`${env.NEXTAUTH_URL || process.env.NEXTAUTH_URL}/api/auth/user`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
