@@ -1,3 +1,4 @@
+// src/app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -20,10 +21,11 @@ export const metadata: Metadata = {
   description: "Secure API access, key management, and analytics for Lynxa Pro AI model",
   keywords: ["Nexariq", "Lynxa Pro", "AI", "API", "Developer Portal", "Authentication", "Analytics"],
   authors: [{ name: "Nexariq - AJ STUDIOZ" }],
+  manifest: "/site.webmanifest",
   openGraph: {
     title: "Nexariq Developer Portal",
     description: "Secure API access and management for Lynxa Pro AI model",
-    url: "https://nexariq.com",
+    url: "https://nexariq-07.vercel.app",
     siteName: "Nexariq",
     type: "website",
   },
@@ -62,7 +64,6 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-        <link rel="manifest" href="/site.webmanifest" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground min-h-screen`}
