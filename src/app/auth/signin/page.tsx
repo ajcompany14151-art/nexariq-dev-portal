@@ -1,12 +1,15 @@
 "use client";
 
-import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserIcon, EnvelopeIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 
 export default function SignInPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUpActive, setIsSignUpActive] = useState(false);
   const [formData, setFormData] = useState({
@@ -14,6 +17,14 @@ export default function SignInPage() {
     email: "",
     password: "",
   });
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (status === "authenticated") {
+      console.log("User is authenticated, redirecting to /dashboard");
+      router.push("/dashboard");
+    }
+  }, [status, router]);
 
   const handleGoogleSignIn = async () => {
     try {
@@ -39,21 +50,24 @@ export default function SignInPage() {
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For demo purposes, we'll use Google sign-in for sign-up as well
-    // In a real app, you'd handle email/password sign-up with a backend API
+    // For demo, use Google sign-in for sign-up
     await handleGoogleSignIn();
   };
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For demo purposes, we'll use Google sign-in
-    // In a real app, you'd handle email/password sign-in with NextAuth Credentials provider
+    // For demo, use Google sign-in
     await handleGoogleSignIn();
   };
+
+  if (status === "loading") {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 font-montserrat">
       <style jsx>{`
+        /* ... (your existing styles remain unchanged) ... */
         .container {
           background-color: #fff;
           border-radius: 10px;
@@ -168,7 +182,6 @@ export default function SignInPage() {
         }
       `}</style>
       <div className={`container ${isSignUpActive ? "right-panel-active" : ""}`}>
-        {/* Sign-Up Form */}
         <div className="form-container sign-up-container">
           <form onSubmit={handleEmailSignUp} className="flex flex-col items-center justify-center bg-white p-12 h-full text-center">
             <h1 className="font-bold text-2xl mb-4">Create Account</h1>
@@ -216,7 +229,6 @@ export default function SignInPage() {
             </Button>
           </form>
         </div>
-        {/* Sign-In Form */}
         <div className="form-container sign-in-container">
           <form onSubmit={handleEmailSignIn} className="flex flex-col items-center justify-center bg-white p-12 h-full text-center">
             <h1 className="font-bold text-2xl mb-4">Sign In</h1>
@@ -257,7 +269,6 @@ export default function SignInPage() {
             </Button>
           </form>
         </div>
-        {/* Overlay Panels */}
         <div className="overlay-container">
           <div className="overlay">
             <div className="overlay-panel overlay-left">
