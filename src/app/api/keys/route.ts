@@ -1,8 +1,8 @@
+// src/app/api/keys/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
-import { v4 as uuidv4 } from "uuid"
+import { env } from "@/lib/env"
 
 export async function GET() {
   try {
@@ -11,23 +11,24 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // For now, return mock data since we're using the external backend
-    const mockKeys = [
-      {
-        id: "1",
-        name: "Production Key",
-        key: "nxq_abc123...",
-        environment: "production",
-        isActive: true,
-        lastUsed: new Date().toISOString(),
-        createdAt: new Date().toISOString()
-      }
-    ]
+    // Call the external backend to get keys
+    const response = await fetch(`${env.NEXARIQ_BACKEND_URL}/api/keys`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.user.email}`, // Use email as identifier
+      },
+    });
 
-    return NextResponse.json(mockKeys)
+    if (!response.ok) {
+      throw new Error("Failed to fetch API keys");
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("Error fetching API keys:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error fetching API keys:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -45,10 +46,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Call the external backend to generate a key
-    const response = await fetch(`${process.env.NEXARIQ_BACKEND_URL || 'https://lynxa-pro-backend.vercel.app'}/api/generate-key`, {
+    const response = await fetch(`${env.NEXARIQ_BACKEND_URL}/api/generate-key`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        "Authorization": `Bearer ${session.user.email}`, // Use email as identifier
       },
       body: JSON.stringify({ email })
     })
@@ -61,7 +63,7 @@ export async function POST(request: NextRequest) {
     const data = await response.json()
     
     return NextResponse.json({
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       name: `Generated Key - ${new Date().toLocaleDateString()}`,
       key: data.apiKey,
       environment: "production",
