@@ -565,6 +565,7 @@ export default function Home() {
                 </Card>
               </div>
             )}
+            {activeTab === "profile" && <UserProfile />}
 
             {activeTab === "team" && (
               <div className="space-y-6">
