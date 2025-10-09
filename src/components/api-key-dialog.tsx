@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Key, Eye, EyeOff, Shield, Zap, Clock } from "lucide-react";
+import { Copy, Key, Eye, EyeOff, Shield, Zap, Clock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 interface ApiKeyDialogProps {
@@ -21,6 +21,7 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
   const [loading, setLoading] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [createdKey, setCreatedKey] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     environment: "production",
@@ -32,6 +33,7 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     try {
       console.log("Submitting API key creation request:", formData);
@@ -45,20 +47,31 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
       });
 
       console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
+      
+      const responseText = await response.text();
+      console.log("Response text:", responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Failed to parse response:", parseError);
+        throw new Error("Invalid response from server");
+      }
       
       if (!response.ok) {
-        const error = await response.json();
-        console.error("Error response:", error);
-        throw new Error(error.error || "Failed to create API key");
+        console.error("Error response:", data);
+        throw new Error(data.error || data.details || "Failed to create API key");
       }
 
-      const data = await response.json();
       console.log("API key created:", data);
       setCreatedKey(data);
       onKeyCreated?.();
       toast.success("API key created successfully!");
     } catch (error: any) {
       console.error("Error creating API key:", error);
+      setError(error.message || "Failed to create API key");
       toast.error(error.message || "Failed to create API key");
     } finally {
       setLoading(false);
@@ -73,6 +86,7 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
   const handleClose = () => {
     setOpen(false);
     setCreatedKey(null);
+    setError(null);
     setFormData({
       name: "",
       environment: "production",
@@ -98,6 +112,15 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
         
         {!createdKey ? (
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <p className="text-sm text-red-800">{error}</p>
+                </div>
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Key Name</Label>
@@ -107,6 +130,7 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -115,6 +139,7 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
                 <Select 
                   value={formData.environment} 
                   onValueChange={(value) => setFormData(prev => ({ ...prev, environment: value }))}
+                  disabled={loading}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -144,6 +169,7 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
                     max="1000"
                     value={formData.rateLimitPerMinute}
                     onChange={(e) => setFormData(prev => ({ ...prev, rateLimitPerMinute: parseInt(e.target.value) || 60 }))}
+                    disabled={loading}
                   />
                 </div>
 
@@ -159,6 +185,7 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
                     max="10000"
                     value={formData.rateLimitPerHour}
                     onChange={(e) => setFormData(prev => ({ ...prev, rateLimitPerHour: parseInt(e.target.value) || 1000 }))}
+                    disabled={loading}
                   />
                 </div>
 
@@ -174,6 +201,7 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
                     max="100000"
                     value={formData.rateLimitPerDay}
                     onChange={(e) => setFormData(prev => ({ ...prev, rateLimitPerDay: parseInt(e.target.value) || 10000 }))}
+                    disabled={loading}
                   />
                 </div>
               </div>
