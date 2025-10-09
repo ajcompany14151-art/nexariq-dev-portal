@@ -1,3 +1,4 @@
+// src/app/api/analytics/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
@@ -5,8 +6,11 @@ import { db } from "@/lib/db"
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("GET /api/analytics - Starting request")
+    
     const session = await getServerSession(authOptions)
     if (!session?.user) {
+      console.log("No session found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -34,10 +38,28 @@ export async function GET(request: NextRequest) {
         startDate.setDate(now.getDate() - 30)
     }
 
+    // Find or create user
+    let user = await db.user.findUnique({
+      where: { email: session.user.email! }
+    })
+
+    if (!user) {
+      user = await db.user.create({
+        data: {
+          email: session.user.email!,
+          name: session.user.name || "Unknown User",
+          image: session.user.image || "",
+          provider: "google",
+          providerId: session.user.email,
+          lastLoginAt: new Date()
+        }
+      })
+    }
+
     // Get usage logs for the period
     const usageLogs = await db.usageLog.findMany({
       where: {
-        userId: userId,
+        userId: user.id,
         createdAt: {
           gte: startDate
         }
@@ -109,6 +131,9 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Error fetching analytics:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ 
+      error: "Internal server error",
+      details: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 })
   }
 }
