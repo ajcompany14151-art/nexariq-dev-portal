@@ -70,7 +70,6 @@ model User {
   subscriptions Subscription[]
   usageLogs     UsageLog[]
   ipWhitelists  IpWhitelist[]
-  rateLimits    RateLimit[]
   
   @@map("users")
 }
@@ -136,6 +135,7 @@ model RateLimit {
   apiKeyId    String
   apiKey      ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
   userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([apiKeyId, windowType, windowStart])
   @@map("rate_limits")
