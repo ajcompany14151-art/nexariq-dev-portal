@@ -4,6 +4,9 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { env } from "@/lib/env"
+import { RateLimiter } from "@/lib/rate-limiter"
+
+const rateLimiter = new RateLimiter();
 
 export async function GET() {
   try {
@@ -17,7 +20,12 @@ export async function GET() {
       where: { email: session.user.email },
       include: {
         apiKeys: {
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'desc' },
+          include: {
+            _count: {
+              select: { usageLogs: true }
+            }
+          }
         }
       }
     })
@@ -26,7 +34,14 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json(user.apiKeys)
+    // Add usage statistics to each API key
+    const apiKeysWithStats = user.apiKeys.map(key => ({
+      ...key,
+      usageCount: key._count.usageLogs,
+      isExpired: key.expires ? new Date(key.expires) < new Date() : false
+    }))
+
+    return NextResponse.json(apiKeysWithStats)
   } catch (error) {
     console.error("Error fetching API keys:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -40,25 +55,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { name, environment } = await request.json()
+    const { name, environment, rateLimitPerMinute, rateLimitPerHour, rateLimitPerDay } = await request.json()
 
     if (!name) {
       return NextResponse.json({ error: "API key name is required" }, { status: 400 })
     }
 
-    // Find or create the user
-    let user = await db.user.findUnique({
-      where: { email: session.user.email }
+    // Find the user
+    const user = await db.user.findUnique({
+      where: { email: session.user.email },
+      include: {
+        apiKeys: {
+          where: { isActive: true }
+        }
+      }
     })
 
     if (!user) {
-      user = await db.user.create({
-        data: {
-          email: session.user.email,
-          name: session.user.name || "Unknown User",
-          image: session.user.image || ""
-        }
-      })
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Check if user has reached the maximum number of API keys
+    const MAX_FREE_KEYS = 5;
+    if (user.apiKeys.length >= MAX_FREE_KEYS) {
+      return NextResponse.json({ 
+        error: `Maximum number of API keys (${MAX_FREE_KEYS}) reached. Please upgrade your plan.` 
+      }, { status: 429 })
     }
 
     // Generate a unique API key
@@ -68,15 +90,25 @@ export async function POST(request: NextRequest) {
     const expires = new Date()
     expires.setDate(expires.getDate() + 30)
 
-    // Create the API key
+    // Create the API key with rate limits
     const newApiKey = await db.apiKey.create({
       data: {
         name,
         key: apiKey,
         environment: environment || "production",
         expires,
+        rateLimitPerMinute: rateLimitPerMinute || 60,
+        rateLimitPerHour: rateLimitPerHour || 1000,
+        rateLimitPerDay: rateLimitPerDay || 10000,
         userId: user.id
       }
+    })
+
+    // Initialize rate limits for the new key
+    await rateLimiter.initializeRateLimits(newApiKey.id, newApiKey.userId, {
+      perMinute: newApiKey.rateLimitPerMinute,
+      perHour: newApiKey.rateLimitPerHour,
+      perDay: newApiKey.rateLimitPerDay
     })
 
     return NextResponse.json(newApiKey)
