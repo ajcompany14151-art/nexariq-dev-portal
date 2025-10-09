@@ -6,11 +6,18 @@ import { db } from "@/lib/db"
 
 export async function GET() {
   try {
+    console.log("GET /api/keys - Starting request")
+    
     const session = await getServerSession(authOptions)
+    console.log("Session:", session)
+    
     if (!session?.user?.email) {
+      console.log("No session or email found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    console.log("Looking for user with email:", session.user.email)
+    
     // Find the user in the database
     const user = await db.user.findUnique({
       where: { email: session.user.email },
@@ -26,7 +33,10 @@ export async function GET() {
       }
     })
 
+    console.log("User found:", user)
+
     if (!user) {
+      console.log("User not found in database")
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
@@ -37,32 +47,45 @@ export async function GET() {
       isExpired: key.expires ? new Date(key.expires) < new Date() : false
     }))
 
+    console.log("Returning API keys:", apiKeysWithStats)
     return NextResponse.json(apiKeysWithStats)
   } catch (error) {
-    console.error("Error fetching API keys:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error in GET /api/keys:", error)
+    return NextResponse.json({ error: "Internal server error", details: error.message }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("POST /api/keys - Starting request")
+    
     const session = await getServerSession(authOptions)
+    console.log("Session:", session)
+    
     if (!session?.user?.email) {
+      console.log("No session or email found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { name, environment, rateLimitPerMinute, rateLimitPerHour, rateLimitPerDay } = await request.json()
+    const body = await request.json()
+    console.log("Request body:", body)
+    
+    const { name, environment, rateLimitPerMinute, rateLimitPerHour, rateLimitPerDay } = body
 
     if (!name) {
+      console.log("No name provided")
       return NextResponse.json({ error: "API key name is required" }, { status: 400 })
     }
 
+    console.log("Looking for user with email:", session.user.email)
+    
     // Find or create the user
     let user = await db.user.findUnique({
       where: { email: session.user.email }
     })
 
     if (!user) {
+      console.log("User not found, creating new user")
       // Create user if not found
       user = await db.user.create({
         data: {
@@ -74,6 +97,7 @@ export async function POST(request: NextRequest) {
           lastLoginAt: new Date()
         }
       })
+      console.log("Created new user:", user)
     }
 
     // Check if user has reached the maximum number of API keys
@@ -84,8 +108,11 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    console.log("Existing active keys count:", existingKeys)
+
     const MAX_FREE_KEYS = 5;
     if (existingKeys >= MAX_FREE_KEYS) {
+      console.log("Maximum keys reached")
       return NextResponse.json({ 
         error: `Maximum number of API keys (${MAX_FREE_KEYS}) reached. Please upgrade your plan.` 
       }, { status: 429 })
@@ -100,6 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     let apiKey = generateApiKey()
+    console.log("Generated API key:", apiKey)
     
     // Ensure the API key is unique
     let existingKey = await db.apiKey.findUnique({
@@ -107,6 +135,7 @@ export async function POST(request: NextRequest) {
     })
     
     while (existingKey) {
+      console.log("API key exists, generating new one")
       apiKey = generateApiKey()
       existingKey = await db.apiKey.findUnique({
         where: { key: apiKey }
@@ -117,6 +146,8 @@ export async function POST(request: NextRequest) {
     const expires = new Date()
     expires.setDate(expires.getDate() + 30)
 
+    console.log("Creating API key in database")
+    
     // Create the API key with rate limits
     const newApiKey = await db.apiKey.create({
       data: {
@@ -135,7 +166,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(newApiKey)
   } catch (error) {
-    console.error("Error creating API key:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Error in POST /api/keys:", error)
+    return NextResponse.json({ 
+      error: "Internal server error", 
+      details: error.message,
+      stack: error.stack 
+    }, { status: 500 })
   }
 }
