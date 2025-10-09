@@ -7,9 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { 
   User, 
   Key, 
@@ -23,7 +23,9 @@ import {
   Plus,
   Shield,
   Zap,
-  Activity
+  Activity,
+  BarChart3,
+  TrendingUp
 } from "lucide-react";
 import { ApiKeyDialog } from "@/components/api-key-dialog";
 import { toast } from "sonner";
@@ -37,6 +39,16 @@ interface ApiKey {
   lastUsed: string | null;
   createdAt: string;
   expires: string | null;
+  rateLimitPerMinute: number;
+  rateLimitPerHour: number;
+  rateLimitPerDay: number;
+  usageCount: number;
+  isExpired: boolean;
+  rateLimitStatus?: {
+    minute: { limit: number; used: number; remaining: number; resetTime: string };
+    hour: { limit: number; used: number; remaining: number; resetTime: string };
+    day: { limit: number; used: number; remaining: number; resetTime: string };
+  };
 }
 
 export function UserProfile() {
@@ -44,6 +56,7 @@ export function UserProfile() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [showKey, setShowKey] = useState<{ [key: string]: boolean }>({});
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   const fetchApiKeys = async () => {
     try {
@@ -60,11 +73,36 @@ export function UserProfile() {
     }
   };
 
+  const fetchRateLimitStatus = async (apiKeyId: string) => {
+    try {
+      const response = await fetch(`/api/keys/${apiKeyId}/rate-limit`);
+      if (response.ok) {
+        const data = await response.json();
+        setApiKeys(prev => prev.map(key => 
+          key.id === apiKeyId ? { ...key, rateLimitStatus: data } : key
+        ));
+      }
+    } catch (error) {
+      console.error("Failed to fetch rate limit status:", error);
+    }
+  };
+
   useEffect(() => {
     if (session) {
       fetchApiKeys();
     }
   }, [session]);
+
+  useEffect(() => {
+    // Refresh rate limit status every 30 seconds for expanded key
+    if (expandedKey) {
+      const interval = setInterval(() => {
+        fetchRateLimitStatus(expandedKey);
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [expandedKey]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -114,11 +152,6 @@ export function UserProfile() {
     }
   };
 
-  const isExpired = (expires: string | null) => {
-    if (!expires) return false;
-    return new Date(expires) < new Date();
-  };
-
   const formatLastUsed = (lastUsed: string | null) => {
     if (!lastUsed) return "Never";
     const date = new Date(lastUsed);
@@ -131,6 +164,16 @@ export function UserProfile() {
     if (diffDays < 7) return `${diffDays} days ago`;
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
     return `${Math.floor(diffDays / 30)} months ago`;
+  };
+
+  const getUsagePercentage = (used: number, limit: number) => {
+    return Math.min((used / limit) * 100, 100);
+  };
+
+  const getUsageColor = (percentage: number) => {
+    if (percentage < 50) return "bg-green-500";
+    if (percentage < 80) return "bg-yellow-500";
+    return "bg-red-500";
   };
 
   return (
@@ -152,7 +195,7 @@ export function UserProfile() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="flex items-center space-x-2">
               <Key className="h-5 w-5 text-blue-600" />
               <div>
@@ -164,11 +207,18 @@ export function UserProfile() {
               <Activity className="h-5 w-5 text-green-600" />
               <div>
                 <p className="text-sm font-medium">Active Keys</p>
-                <p className="text-2xl font-bold">{apiKeys.filter(k => k.isActive && !isExpired(k.expires)).length}</p>
+                <p className="text-2xl font-bold">{apiKeys.filter(k => k.isActive && !k.isExpired).length}</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Shield className="h-5 w-5 text-purple-600" />
+              <BarChart3 className="h-5 w-5 text-purple-600" />
+              <div>
+                <p className="text-sm font-medium">Total Requests</p>
+                <p className="text-2xl font-bold">{apiKeys.reduce((sum, k) => sum + k.usageCount, 0)}</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Shield className="h-5 w-5 text-orange-600" />
               <div>
                 <p className="text-sm font-medium">Security Level</p>
                 <p className="text-2xl font-bold">High</p>
@@ -184,7 +234,7 @@ export function UserProfile() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>API Keys</CardTitle>
-              <CardDescription>Manage your API keys for accessing the Lynxa Pro AI model</CardDescription>
+              <CardDescription>Manage your API keys with rate limiting</CardDescription>
             </div>
             <ApiKeyDialog onKeyCreated={fetchApiKeys}>
               <Button>
@@ -212,25 +262,25 @@ export function UserProfile() {
               </ApiKeyDialog>
             </div>
           ) : (
-            <ScrollArea className="h-[400px]">
+            <ScrollArea className="h-[600px]">
               <div className="space-y-4">
                 {apiKeys.map((apiKey) => (
                   <Card key={apiKey.id} className="overflow-hidden">
                     <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
                             <h3 className="font-medium">{apiKey.name}</h3>
                             <Badge variant={apiKey.environment === "production" ? "default" : "secondary"}>
                               {apiKey.environment}
                             </Badge>
-                            {apiKey.isActive && !isExpired(apiKey.expires) ? (
+                            {apiKey.isActive && !apiKey.isExpired ? (
                               <Badge variant="outline" className="text-green-600 border-green-600">
                                 Active
                               </Badge>
                             ) : (
                               <Badge variant="outline" className="text-red-600 border-red-600">
-                                {isExpired(apiKey.expires) ? "Expired" : "Inactive"}
+                                {apiKey.isExpired ? "Expired" : "Inactive"}
                               </Badge>
                             )}
                           </div>
@@ -262,6 +312,10 @@ export function UserProfile() {
                               <Clock className="h-3 w-3" />
                               <span>Last used: {formatLastUsed(apiKey.lastUsed)}</span>
                             </div>
+                            <div className="flex items-center space-x-1">
+                              <Activity className="h-3 w-3" />
+                              <span>Usage: {apiKey.usageCount}</span>
+                            </div>
                             {apiKey.expires && (
                               <div className="flex items-center space-x-1">
                                 <Zap className="h-3 w-3" />
@@ -271,6 +325,18 @@ export function UserProfile() {
                           </div>
                         </div>
                         <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setExpandedKey(expandedKey === apiKey.id ? null : apiKey.id);
+                              if (expandedKey !== apiKey.id) {
+                                fetchRateLimitStatus(apiKey.id);
+                              }
+                            }}
+                          >
+                            <BarChart3 className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -286,6 +352,74 @@ export function UserProfile() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
+                      </div>
+
+                      {/* Rate Limits Section */}
+                      <div className="border-t pt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium">Rate Limits</h4>
+                          <div className="flex space-x-2 text-xs">
+                            <span className="text-gray-600">
+                              {apiKey.rateLimitPerMinute}/min
+                            </span>
+                            <span className="text-gray-600">
+                              {apiKey.rateLimitPerHour}/hour
+                            </span>
+                            <span className="text-gray-600">
+                              {apiKey.rateLimitPerDay}/day
+                            </span>
+                          </div>
+                        </div>
+
+                        {expandedKey === apiKey.id && apiKey.rateLimitStatus ? (
+                          <div className="space-y-3 mt-4">
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span>Minute Usage</span>
+                                <span>{apiKey.rateLimitStatus.minute.used}/{apiKey.rateLimitStatus.minute.limit}</span>
+                              </div>
+                              <Progress 
+                                value={getUsagePercentage(apiKey.rateLimitStatus.minute.used, apiKey.rateLimitStatus.minute.limit)}
+                                className="h-2"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span>Hour Usage</span>
+                                <span>{apiKey.rateLimitStatus.hour.used}/{apiKey.rateLimitStatus.hour.limit}</span>
+                              </div>
+                              <Progress 
+                                value={getUsagePercentage(apiKey.rateLimitStatus.hour.used, apiKey.rateLimitStatus.hour.limit)}
+                                className="h-2"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span>Day Usage</span>
+                                <span>{apiKey.rateLimitStatus.day.used}/{apiKey.rateLimitStatus.day.limit}</span>
+                              </div>
+                              <Progress 
+                                value={getUsagePercentage(apiKey.rateLimitStatus.day.used, apiKey.rateLimitStatus.day.limit)}
+                                className="h-2"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-4 text-xs text-gray-600">
+                            <div>
+                              <p className="font-medium">Per Minute</p>
+                              <p>{apiKey.rateLimitPerMinute} requests</p>
+                            </div>
+                            <div>
+                              <p className="font-medium">Per Hour</p>
+                              <p>{apiKey.rateLimitPerHour} requests</p>
+                            </div>
+                            <div>
+                              <p className="font-medium">Per Day</p>
+                              <p>{apiKey.rateLimitPerDay} requests</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
