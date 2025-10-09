@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Key, Eye, EyeOff, Shield } from "lucide-react";
+import { Copy, Key, Eye, EyeOff, Shield, Zap, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 interface ApiKeyDialogProps {
@@ -23,7 +23,10 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
   const [createdKey, setCreatedKey] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: "",
-    environment: "production"
+    environment: "production",
+    rateLimitPerMinute: 60,
+    rateLimitPerHour: 1000,
+    rateLimitPerDay: 10000
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,7 +66,13 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
   const handleClose = () => {
     setOpen(false);
     setCreatedKey(null);
-    setFormData({ name: "", environment: "production" });
+    setFormData({
+      name: "",
+      environment: "production",
+      rateLimitPerMinute: 60,
+      rateLimitPerHour: 1000,
+      rateLimitPerDay: 10000
+    });
     setShowKey(false);
   };
 
@@ -72,45 +81,98 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Generate Nexariq API Key</DialogTitle>
           <DialogDescription>
-            Create a new API key to access the Lynxa Pro AI model
+            Create a new API key to access the Lynxa Pro AI model with custom rate limits
           </DialogDescription>
         </DialogHeader>
         
         {!createdKey ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Key Name</Label>
-              <Input
-                id="name"
-                placeholder="My API Key"
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                required
-              />
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Key Name</Label>
+                <Input
+                  id="name"
+                  placeholder="My API Key"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="environment">Environment</Label>
+                <Select 
+                  value={formData.environment} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, environment: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="production">Production</SelectItem>
+                    <SelectItem value="sandbox">Sandbox</SelectItem>
+                    <SelectItem value="development">Development</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="environment">Environment</Label>
-              <Select 
-                value={formData.environment} 
-                onValueChange={(value) => setFormData(prev => ({ ...prev, environment: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="production">Production</SelectItem>
-                  <SelectItem value="sandbox">Sandbox</SelectItem>
-                  <SelectItem value="development">Development</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-4">
+              <Label className="text-base font-semibold">Rate Limits</Label>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="rateLimitPerMinute" className="flex items-center">
+                    <Clock className="w-4 h-4 mr-1" />
+                    Per Minute
+                  </Label>
+                  <Input
+                    id="rateLimitPerMinute"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    value={formData.rateLimitPerMinute}
+                    onChange={(e) => setFormData(prev => ({ ...prev, rateLimitPerMinute: parseInt(e.target.value) || 60 }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="rateLimitPerHour" className="flex items-center">
+                    <Zap className="w-4 h-4 mr-1" />
+                    Per Hour
+                  </Label>
+                  <Input
+                    id="rateLimitPerHour"
+                    type="number"
+                    min="1"
+                    max="10000"
+                    value={formData.rateLimitPerHour}
+                    onChange={(e) => setFormData(prev => ({ ...prev, rateLimitPerHour: parseInt(e.target.value) || 1000 }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="rateLimitPerDay" className="flex items-center">
+                    <Shield className="w-4 h-4 mr-1" />
+                    Per Day
+                  </Label>
+                  <Input
+                    id="rateLimitPerDay"
+                    type="number"
+                    min="1"
+                    max="100000"
+                    value={formData.rateLimitPerDay}
+                    onChange={(e) => setFormData(prev => ({ ...prev, rateLimitPerDay: parseInt(e.target.value) || 10000 }))}
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
               <div className="flex items-start space-x-2">
                 <Shield className="w-4 h-4 text-blue-600 mt-0.5" />
                 <div className="text-sm text-blue-800">
@@ -119,6 +181,7 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
                     <li>• Format: nxq_xxxxxxxxxxxxxxxx</li>
                     <li>• Valid for 30 days from creation</li>
                     <li>• Can be revoked at any time</li>
+                    <li>• Rate limits protect against abuse</li>
                     <li>• Works with Lynxa Pro AI model</li>
                   </ul>
                 </div>
@@ -163,6 +226,21 @@ export function ApiKeyDialog({ children, onKeyCreated }: ApiKeyDialogProps) {
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Per Minute</p>
+                <p className="text-lg font-semibold">{createdKey.rateLimitPerMinute}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Per Hour</p>
+                <p className="text-lg font-semibold">{createdKey.rateLimitPerHour}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Per Day</p>
+                <p className="text-lg font-semibold">{createdKey.rateLimitPerDay}</p>
               </div>
             </div>
             
