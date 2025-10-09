@@ -41,9 +41,12 @@ export function SplashScreen() {
     }
   }
 
-  const handleGetStarted = () => {
-    setShowAuth(true)
-  }
+  // src/components/splash-screen.tsx
+
+// Update the handleGetStarted function
+const handleGetStarted = () => {
+  router.push("/signin");
+};
 
   if (showAuth) {
     return (
