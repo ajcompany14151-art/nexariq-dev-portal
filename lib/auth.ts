@@ -32,6 +32,9 @@ export const authOptions: NextAuthOptions = {
 
         // For demo purposes, we'll skip password verification
         // In production, you'd verify the password here
+        // const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
+        // if (!isPasswordValid) return null
+
         return {
           id: user.id,
           email: user.email,
@@ -41,12 +44,12 @@ export const authOptions: NextAuthOptions = {
       }
     }),
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
     GitHubProvider({
-      clientId: process.env.GITHUB_ID!,
-      clientSecret: process.env.GITHUB_SECRET!,
+      clientId: process.env.GITHUB_ID || "",
+      clientSecret: process.env.GITHUB_SECRET || "",
     }),
   ],
   session: {
@@ -60,6 +63,7 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
+      // Add null check for session.user
       if (token && session.user) {
         session.user.id = token.sub!
         session.user.role = token.role as string
