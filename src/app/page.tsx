@@ -163,9 +163,12 @@ export default function Home() {
                     {(session.user?.name || session.user?.email || "U").charAt(0).toUpperCase()}
                   </span>
                 </div>
-              <Button variant="outline" size="sm" onClick={() => signOut()}>
-                  Sign Out
-                </Button>
+              // src/app/page.tsx
+
+// Update the sign out button
+<Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/signin" })}>
+  Sign Out
+</Button>
               </div>
             ) : null}
           </div>
