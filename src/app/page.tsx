@@ -11,6 +11,7 @@ import { AnalyticsPage } from "@/components/analytics-page"
 import { SettingsPage } from "@/components/settings-page"
 import { EnhancedApiPlayground } from "@/components/enhanced-api-playground"
 import { SplashScreen } from "@/components/splash-screen"
+import { UserProfile } from "@/components/user-profile"
 import { signOut } from "next-auth/react"
 import { 
   Key, 
@@ -44,7 +45,8 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  User
 } from "lucide-react"
 
 interface ApiKey {
@@ -55,6 +57,11 @@ interface ApiKey {
   isActive: boolean
   lastUsed: string | null
   createdAt: string
+  rateLimitPerMinute?: number
+  rateLimitPerHour?: number
+  rateLimitPerDay?: number
+  usageCount?: number
+  isExpired?: boolean
 }
 
 export default function Home() {
@@ -163,12 +170,9 @@ export default function Home() {
                     {(session.user?.name || session.user?.email || "U").charAt(0).toUpperCase()}
                   </span>
                 </div>
-              // src/app/page.tsx
-
-// Update the sign out button
-<Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/signin" })}>
-  Sign Out
-</Button>
+                <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/signin" })}>
+                  Sign Out
+                </Button>
               </div>
             ) : null}
           </div>
@@ -187,6 +191,7 @@ export default function Home() {
                 <nav className="space-y-1 px-2 pb-4">
                   {[
                     { id: "overview", label: "Overview", icon: BarChart3, color: "text-blue-600" },
+                    { id: "profile", label: "Profile", icon: User, color: "text-indigo-600" },
                     { id: "keys", label: "API Keys", icon: Key, color: "text-green-600" },
                     { id: "playground", label: "Playground", icon: Terminal, color: "text-purple-600" },
                     { id: "analytics", label: "Analytics", icon: TrendingUp, color: "text-orange-600" },
@@ -268,7 +273,7 @@ export default function Home() {
                       <Key className="h-4 w-4 text-green-600" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">{apiKeys.filter(k => k.isActive).length}</div>
+                      <div className="text-2xl font-bold">{apiKeys.filter(k => k.isActive && !k.isExpired).length}</div>
                       <p className="text-xs text-muted-foreground">
                         {apiKeys.filter(k => k.environment === 'sandbox').length} sandbox, {apiKeys.filter(k => k.environment === 'production').length} production
                       </p>
@@ -385,6 +390,8 @@ export default function Home() {
               </div>
             )}
 
+            {activeTab === "profile" && <UserProfile />}
+
             {activeTab === "playground" && (
               <div className="space-y-6">
                 <div>
@@ -432,7 +439,7 @@ export default function Home() {
                         {apiKeys.map((key) => (
                           <div key={key.id} className="flex items-center justify-between p-4 border rounded-lg bg-slate-50 dark:bg-slate-800">
                             <div className="flex items-center space-x-4">
-                              <div className={`w-3 h-3 rounded-full ${key.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+                              <div className={`w-3 h-3 rounded-full ${key.isActive && !key.isExpired ? 'bg-green-500' : 'bg-gray-400'}`} />
                               <div>
                                 <div className="font-medium">{key.name}</div>
                                 <div className="text-sm text-muted-foreground">
@@ -565,7 +572,6 @@ export default function Home() {
                 </Card>
               </div>
             )}
-            {activeTab === "profile" && <UserProfile />}
 
             {activeTab === "team" && (
               <div className="space-y-6">
