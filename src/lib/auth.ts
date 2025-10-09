@@ -23,38 +23,18 @@ export const authOptions = {
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      // Create or update user in database
-      if (account?.provider === "google" && user.email) {
-        try {
-          const response = await fetch(`${env.NEXTAUTH_URL || process.env.NEXTAUTH_URL}/api/auth/user`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              email: user.email,
-              name: user.name,
-              image: user.image,
-              provider: "google",
-              providerId: account.providerAccountId,
-            }),
-          });
-          
-          if (!response.ok) {
-            console.error("Failed to create/update user");
-          }
-        } catch (error) {
-          console.error("Error creating user:", error);
-        }
-      }
+      console.log("SignIn callback:", { user, account, profile });
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, profile }) {
       if (user) {
         token.id = user.id || user.email;
         token.name = user.name;
         token.email = user.email;
         token.image = user.image;
+        if (account?.provider === "google") {
+          token.googleProfile = profile;
+        }
       }
       return token;
     },
@@ -68,6 +48,7 @@ export const authOptions = {
       return session;
     },
     async redirect({ url, baseUrl }) {
+      console.log("redirect callback - url:", url, "baseUrl:", baseUrl);
       if (url.startsWith(baseUrl)) {
         return url;
       }
