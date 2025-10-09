@@ -2,76 +2,84 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { db } from "@/lib/db"
 import { env } from "@/lib/env"
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Call the external backend to get keys
-    const response = await fetch(`${env.NEXARIQ_BACKEND_URL}/api/keys`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.user.email}`, // Use email as identifier
-      },
-    });
+    // Find the user in the database
+    const user = await db.user.findUnique({
+      where: { email: session.user.email },
+      include: {
+        apiKeys: {
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    })
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch API keys");
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(user.apiKeys)
   } catch (error) {
-    console.error("Error fetching API keys:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("Error fetching API keys:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { email } = await request.json()
+    const { name, environment } = await request.json()
 
-    if (!email || !email.endsWith('@gmail.com')) {
-      return NextResponse.json({ error: "Valid Gmail address required" }, { status: 400 })
+    if (!name) {
+      return NextResponse.json({ error: "API key name is required" }, { status: 400 })
     }
 
-    // Call the external backend to generate a key
-    const response = await fetch(`${env.NEXARIQ_BACKEND_URL}/api/generate-key`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        "Authorization": `Bearer ${session.user.email}`, // Use email as identifier
-      },
-      body: JSON.stringify({ email })
+    // Find or create the user
+    let user = await db.user.findUnique({
+      where: { email: session.user.email }
     })
 
-    if (!response.ok) {
-      const error = await response.json()
-      return NextResponse.json({ error: error.error || "Failed to generate API key" }, { status: response.status })
+    if (!user) {
+      user = await db.user.create({
+        data: {
+          email: session.user.email,
+          name: session.user.name || "Unknown User",
+          image: session.user.image || ""
+        }
+      })
     }
 
-    const data = await response.json()
-    
-    return NextResponse.json({
-      id: crypto.randomUUID(),
-      name: `Generated Key - ${new Date().toLocaleDateString()}`,
-      key: data.apiKey,
-      environment: "production",
-      isActive: true,
-      lastUsed: null,
-      createdAt: new Date().toISOString(),
-      expires: data.expires
+    // Generate a unique API key
+    const apiKey = `nxq_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`
+
+    // Set expiration date (30 days from now)
+    const expires = new Date()
+    expires.setDate(expires.getDate() + 30)
+
+    // Create the API key
+    const newApiKey = await db.apiKey.create({
+      data: {
+        name,
+        key: apiKey,
+        environment: environment || "production",
+        expires,
+        userId: user.id
+      }
     })
+
+    return NextResponse.json(newApiKey)
   } catch (error) {
     console.error("Error creating API key:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
