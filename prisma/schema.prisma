@@ -3,7 +3,97 @@
 
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
 
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  provider      String?
+  providerId    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  
+  // Relations
+  apiKeys       ApiKey[]
+  usageLogs     UsageLog[]
+  rateLimits    RateLimit[]
+  
+  @@map("users")
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  name        String
+  key         String   @unique
+  environment String   @default("production") // production, sandbox
+  isActive    Boolean  @default(true)
+  lastUsed    DateTime?
+  expires     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Rate limiting
+  rateLimitPerMinute  Int      @default(60)    // requests per minute
+  rateLimitPerHour    Int      @default(1000)  // requests per hour
+  rateLimitPerDay     Int      @default(10000) // requests per day
+  
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usageLogs   UsageLog[]
+  rateLimits  RateLimit[]
+  
+  @@map("api_keys")
+}
+
+model UsageLog {
+  id           String   @id @default(cuid())
+  endpoint     String
+  method       String
+  statusCode   Int
+  tokensUsed   Int      @default(0)
+  ipAddress    String?
+  userAgent    String?
+  responseTime Int      @default(0) // in milliseconds
+  createdAt    DateTime @default(now())
+  
+  // Relations
+  apiKeyId     String
+  apiKey       ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("usage_logs")
+}
+
+model RateLimit {
+  id          String   @id @default(cuid())
+  windowType  String   // minute, hour, day
+  windowStart DateTime @default(now())
+  requestCount Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  apiKeyId    String
+  apiKey      ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  userId      String
+  
+  @@unique([apiKeyId, windowType, windowStart])
+  @@map("rate_limits")
+}
 generator client {
   provider = "prisma-client-js"
 }
