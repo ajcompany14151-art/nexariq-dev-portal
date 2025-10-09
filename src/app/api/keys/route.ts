@@ -9,17 +9,15 @@ export async function GET() {
     console.log("GET /api/keys - Starting request")
     
     const session = await getServerSession(authOptions)
-    console.log("Session:", session)
+    console.log("Session:", session?.user?.email)
     
     if (!session?.user?.email) {
       console.log("No session or email found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("Looking for user with email:", session.user.email)
-    
-    // Find the user in the database
-    const user = await db.user.findUnique({
+    // Find or create the user
+    let user = await db.user.findUnique({
       where: { email: session.user.email },
       include: {
         apiKeys: {
@@ -33,11 +31,29 @@ export async function GET() {
       }
     })
 
-    console.log("User found:", user)
-
     if (!user) {
-      console.log("User not found in database")
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      console.log("User not found, creating new user")
+      user = await db.user.create({
+        data: {
+          email: session.user.email,
+          name: session.user.name || "Unknown User",
+          image: session.user.image || "",
+          provider: "google",
+          providerId: session.user.email,
+          lastLoginAt: new Date()
+        },
+        include: {
+          apiKeys: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              _count: {
+                select: { usageLogs: true }
+              }
+            }
+          }
+        }
+      })
+      console.log("Created new user:", user)
     }
 
     // Add usage statistics to each API key
@@ -47,11 +63,14 @@ export async function GET() {
       isExpired: key.expires ? new Date(key.expires) < new Date() : false
     }))
 
-    console.log("Returning API keys:", apiKeysWithStats)
+    console.log("Returning API keys:", apiKeysWithStats.length)
     return NextResponse.json(apiKeysWithStats)
   } catch (error) {
     console.error("Error in GET /api/keys:", error)
-    return NextResponse.json({ error: "Internal server error", details: error.message }, { status: 500 })
+    return NextResponse.json({ 
+      error: "Internal server error", 
+      details: error instanceof Error ? error.message : "Unknown error"
+    }, { status: 500 })
   }
 }
 
@@ -60,7 +79,7 @@ export async function POST(request: NextRequest) {
     console.log("POST /api/keys - Starting request")
     
     const session = await getServerSession(authOptions)
-    console.log("Session:", session)
+    console.log("Session:", session?.user?.email)
     
     if (!session?.user?.email) {
       console.log("No session or email found")
@@ -77,8 +96,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "API key name is required" }, { status: 400 })
     }
 
-    console.log("Looking for user with email:", session.user.email)
-    
     // Find or create the user
     let user = await db.user.findUnique({
       where: { email: session.user.email }
@@ -86,7 +103,6 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       console.log("User not found, creating new user")
-      // Create user if not found
       user = await db.user.create({
         data: {
           email: session.user.email,
@@ -162,15 +178,14 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    console.log("API Key created successfully:", newApiKey)
+    console.log("API Key created successfully:", newApiKey.id)
 
     return NextResponse.json(newApiKey)
   } catch (error) {
     console.error("Error in POST /api/keys:", error)
     return NextResponse.json({ 
       error: "Internal server error", 
-      details: error.message,
-      stack: error.stack 
+      details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 })
   }
 }
