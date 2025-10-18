@@ -1,18 +1,17 @@
 // src/lib/auth.ts
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { env } from "./env";
 
 const providers = [];
 
 // Only add Google provider if credentials are available
-if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && 
-    env.GOOGLE_CLIENT_ID !== "your-google-client-id" && 
-    env.GOOGLE_CLIENT_SECRET !== "your-google-client-secret") {
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && 
+    process.env.GOOGLE_CLIENT_ID !== "your-google-client-id" && 
+    process.env.GOOGLE_CLIENT_SECRET !== "your-google-client-secret") {
   providers.push(
     GoogleProvider({
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
           prompt: "consent",
