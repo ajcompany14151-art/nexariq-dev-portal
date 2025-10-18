@@ -71,16 +71,22 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("API Key creation endpoint called");
+    
     const session = await getServerSession(authOptions)
+    console.log("Session:", session);
     
     if (!session?.user?.email) {
+      console.log("Unauthorized: No session or email");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await request.json()
+    console.log("Request body:", body);
     const { name, environment, rateLimitPerMinute, rateLimitPerHour, rateLimitPerDay } = body
 
     if (!name) {
+      console.log("Missing API key name");
       return NextResponse.json({ error: "API key name is required" }, { status: 400 })
     }
 
@@ -88,19 +94,26 @@ export async function POST(request: NextRequest) {
     let user = await db.user.findUnique({
       where: { email: session.user.email }
     })
+    console.log("Found user:", user);
 
     if (!user) {
-      user = await db.user.create({
-        data: {
-          id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-          email: session.user.email,
-          name: session.user.name || "Unknown User",
-          image: session.user.image || "",
-          provider: "google",
-          providerId: session.user.email,
-          lastLoginAt: new Date()
-        }
-      })
+      console.log("Creating new user");
+      try {
+        user = await db.user.create({
+          data: {
+            email: session.user.email,
+            name: session.user.name || "Unknown User",
+            image: session.user.image || "",
+            provider: "google",
+            providerId: session.user.email,
+            lastLoginAt: new Date()
+          }
+        })
+        console.log("Created user:", user);
+      } catch (userCreateError) {
+        console.error("Error creating user:", userCreateError);
+        throw userCreateError;
+      }
     }
 
     // Check if user has reached the maximum number of API keys
@@ -110,8 +123,9 @@ export async function POST(request: NextRequest) {
         isActive: true 
       }
     })
+    console.log("Existing keys count:", existingKeys);
 
-    const MAX_FREE_KEYS = 5;
+    const MAX_FREE_KEYS = 10; // Increased limit
     if (existingKeys >= MAX_FREE_KEYS) {
       return NextResponse.json({ 
         error: `Maximum number of API keys (${MAX_FREE_KEYS}) reached. Please upgrade your plan.` 
@@ -127,6 +141,7 @@ export async function POST(request: NextRequest) {
     }
 
     let apiKey = generateApiKey()
+    console.log("Generated API key:", apiKey.substring(0, 8) + "...");
     
     // Ensure the API key is unique
     let existingKey = await db.apiKey.findUnique({
@@ -145,12 +160,13 @@ export async function POST(request: NextRequest) {
     expires.setDate(expires.getDate() + 30)
 
     // Create the API key with rate limits
+    console.log("Creating API key in database");
     const newApiKey = await db.apiKey.create({
       data: {
-        id: `key_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         name,
         key: apiKey,
-        environment: environment || "production",
+        scopes: JSON.stringify(["chat:read", "chat:write"]), // Add scopes field
+        environment: (environment?.toUpperCase() === "PRODUCTION" ? "PRODUCTION" : "SANDBOX") as any,
         expires,
         rateLimitPerMinute: rateLimitPerMinute || 60,
         rateLimitPerHour: rateLimitPerHour || 1000,
@@ -158,10 +174,19 @@ export async function POST(request: NextRequest) {
         userId: user.id
       }
     })
+    console.log("Created API key:", newApiKey.id);
 
     return NextResponse.json(newApiKey)
   } catch (error) {
     console.error("Error in POST /api/keys:", error)
+    
+    // More detailed error logging
+    if (error instanceof Error) {
+      console.error("Error name:", error.name);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
+    
     return NextResponse.json({ 
       error: "Internal server error", 
       details: error instanceof Error ? error.message : "Unknown error"

@@ -219,15 +219,20 @@ export function EnhancedApiPlayground() {
         })
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.choices?.[0]?.message?.content || "I apologize, but I couldn't generate a response. Please try again.",
+        content: data.choices?.[0]?.message?.content || data.content || "I apologize, but I couldn't generate a response. Please try again.",
         timestamp: new Date(),
-        tokens: data.usage?.total_tokens,
-        model: data.model
+        tokens: data.usage?.total_tokens || 0,
+        model: data.model || settings.model
       };
 
       const finalConversation = {
@@ -248,10 +253,29 @@ export function EnhancedApiPlayground() {
 
     } catch (error) {
       console.error("API Error:", error);
+      
+      let errorContent = "I apologize, but I encountered an error while processing your request.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('401')) {
+          errorContent = "❌ **Authentication Error**: Your API key is invalid or has expired. Please check your API key or generate a new one.";
+        } else if (error.message.includes('429')) {
+          errorContent = "⏰ **Rate Limit Exceeded**: You've reached your API usage limit. Please wait a moment before trying again or check your rate limits.";
+        } else if (error.message.includes('403')) {
+          errorContent = "🚫 **Access Denied**: Your IP address may not be whitelisted or you don't have permission to use this API key.";
+        } else if (error.message.includes('Invalid or inactive API key')) {
+          errorContent = "🔑 **Invalid API Key**: The selected API key is invalid or inactive. Please select a different key or generate a new one.";
+        } else {
+          errorContent = `⚠️ **Error**: ${error.message}`;
+        }
+        
+        toast.error(error.message);
+      }
+      
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "I apologize, but I encountered an error while processing your request. Please check your connection and try again.",
+        content: errorContent,
         timestamp: new Date()
       };
 
@@ -375,20 +399,20 @@ print(data['choices'][0]['message']['content'])`
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex gap-6">
-      {/* Sidebar */}
-      <div className="w-80 space-y-4">
-        <Card className="h-[calc(100vh-12rem)]">
+    <div className="min-h-[calc(100vh-8rem)] flex flex-col lg:flex-row gap-4 lg:gap-6">
+      {/* Mobile/Desktop Sidebar */}
+      <div className="w-full lg:w-80 space-y-4">
+        <Card className="lg:h-[calc(100vh-12rem)]">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Conversations</CardTitle>
+              <CardTitle className="text-base lg:text-lg">Conversations</CardTitle>
               <Button size="sm" onClick={createNewConversation}>
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[calc(100vh-16rem)]">
+            <ScrollArea className="h-40 lg:h-[calc(100vh-16rem)]">
               <div className="space-y-1 p-2">
                 {conversations.map((conv) => (
                   <div
