@@ -6,9 +6,13 @@ import { db } from "@/lib/db"
 
 export async function GET() {
   try {
+    console.log("GET /api/keys - Starting request");
+    
     const session = await getServerSession(authOptions)
+    console.log("Session in /api/keys:", session ? 'Found' : 'Not found');
     
     if (!session?.user?.email) {
+      console.log("No session or email found");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

@@ -3,8 +3,13 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { env } from "./env";
 
-export const authOptions = {
-  providers: [
+const providers = [];
+
+// Only add Google provider if credentials are available
+if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && 
+    env.GOOGLE_CLIENT_ID !== "your-google-client-id" && 
+    env.GOOGLE_CLIENT_SECRET !== "your-google-client-secret") {
+  providers.push(
     GoogleProvider({
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
@@ -15,8 +20,12 @@ export const authOptions = {
           response_type: "code",
         },
       },
-    }),
-  ],
+    })
+  );
+}
+
+export const authOptions = {
+  providers,
   session: {
     strategy: "jwt" as const,
     maxAge: 30 * 24 * 60 * 60, // 30 days

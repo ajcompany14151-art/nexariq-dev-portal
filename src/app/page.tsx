@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
+import { useDevSession, devSignOut } from "@/components/dev-session-provider"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -70,6 +71,12 @@ interface ApiKey {
 
 export default function Home() {
   const { data: session, status } = useSession()
+  const devSession = useDevSession()
+  
+  // Use dev session in development mode if NextAuth session is not available
+  const activeSession = session || (process.env.NODE_ENV === 'development' ? devSession.data : null)
+  const activeStatus = status === 'loading' && devSession.status === 'loading' ? 'loading' : 
+                      session ? status : devSession.status
   const [activeTab, setActiveTab] = useState("overview")
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [selectedApiKey, setSelectedApiKey] = useState<string | null>(null)
@@ -126,14 +133,14 @@ export default function Home() {
   }
 
   useEffect(() => {
-    if (session) {
+    if (activeSession) {
       fetchApiKeys()
       fetchStats()
     }
-  }, [session])
+  }, [activeSession])
   
   useEffect(() => {
-    if (session && apiKeys.length > 0) {
+    if (activeSession && apiKeys.length > 0) {
       fetchStats()
     }
   }, [apiKeys])
@@ -143,7 +150,7 @@ export default function Home() {
   }
 
   // Show advanced loading screen if not authenticated
-  if (status === "loading") {
+  if (activeStatus === "loading") {
     return (
       <PageLoading 
         title="Nexariq Developer Portal"
@@ -152,7 +159,7 @@ export default function Home() {
     )
   }
 
-  if (!session) {
+  if (!activeSession) {
     return <SplashScreen />
   }
 
@@ -182,21 +189,33 @@ export default function Home() {
               <Settings className="w-4 h-4 mr-2" />
               Settings
             </Button>
-            {session ? (
+            {activeSession ? (
               <div className="flex items-center space-x-2 md:space-x-3">
                 <div className="hidden md:block text-right">
-                  <div className="text-sm font-medium">{session.user?.name || session.user?.email}</div>
-                  <div className="text-xs text-muted-foreground">Developer</div>
+                  <div className="text-sm font-medium">{activeSession.user?.name || activeSession.user?.email}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {process.env.NODE_ENV === 'development' && !session ? 'Dev Mode' : 'Developer'}
+                  </div>
                 </div>
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
-                    {(session.user?.name || session.user?.email || "U").charAt(0).toUpperCase()}
+                    {(activeSession.user?.name || activeSession.user?.email || "U").charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => signOut({ callbackUrl: "/signin" })}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="hidden sm:flex" 
+                  onClick={() => session ? signOut({ callbackUrl: "/signin" }) : devSignOut()}
+                >
                   Sign Out
                 </Button>
-                <Button variant="outline" size="sm" className="sm:hidden" onClick={() => signOut({ callbackUrl: "/signin" })}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="sm:hidden" 
+                  onClick={() => session ? signOut({ callbackUrl: "/signin" }) : devSignOut()}
+                >
                   <User className="w-4 h-4" />
                 </Button>
               </div>

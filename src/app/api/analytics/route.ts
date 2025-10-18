@@ -9,8 +9,10 @@ export async function GET(request: NextRequest) {
     console.log("GET /api/analytics - Starting request")
     
     const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      console.log("No session found")
+    console.log("Session in /api/analytics:", session ? 'Found' : 'Not found');
+    
+    if (!session?.user?.email) {
+      console.log("No session or email found")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

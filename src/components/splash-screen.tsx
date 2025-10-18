@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { devSignIn } from "@/components/dev-session-provider"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,6 +19,31 @@ export function SplashScreen() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const router = useRouter()
+  const [devMode, setDevMode] = useState(false)
+  
+  // Development bypass function
+  const handleDevBypass = async () => {
+    if (process.env.NODE_ENV === 'development') {
+      setIsLoading(true)
+      try {
+        const response = await fetch('/api/auth/dev-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email: 'dev@nexariq.com', 
+            name: 'Development User' 
+          })
+        })
+        if (response.ok) {
+          const result = await response.json()
+          devSignIn(result.user)
+        }
+      } catch (error) {
+        console.error('Dev bypass error:', error)
+      }
+      setIsLoading(false)
+    }
+  }
 
   const handleSignIn = async (provider: string) => {
     setIsLoading(true)
@@ -74,6 +100,18 @@ const handleGetStarted = () => {
             <CardContent className="space-y-6">
               {/* OAuth Providers */}
               <div className="space-y-3">
+                {/* Development Mode Button - Only show in dev */}
+                {process.env.NODE_ENV === 'development' && (
+                  <Button
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                    onClick={handleDevBypass}
+                    disabled={isLoading}
+                  >
+                    <Code className="w-4 h-4 mr-2" />
+                    Development Mode (Bypass Auth)
+                  </Button>
+                )}
+                
                 <Button
                   variant="outline"
                   className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20"

@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/components/session-provider";
 import ErrorBoundary from "@/components/error-boundary";
 import { ThemeProvider } from "@/components/theme-provider";
+import { DevSessionProvider } from "@/components/dev-session-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -62,19 +63,18 @@ export default function RootLayout({
       <head>
         <meta name="theme-color" content="#0f172a" />
         <link rel="icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground min-h-screen`}
       >
         <ErrorBoundary>
           <ThemeProvider>
-            <Providers>
-              {children}
-              <Toaster />
-            </Providers>
+            <DevSessionProvider>
+              <Providers>
+                {children}
+                <Toaster />
+              </Providers>
+            </DevSessionProvider>
           </ThemeProvider>
         </ErrorBoundary>
       </body>
