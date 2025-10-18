@@ -136,12 +136,17 @@ export async function POST(request: NextRequest) {
       }, { status: 429 })
     }
 
-    // Generate a unique API key
+    // Generate a cryptographically secure API key
     const generateApiKey = () => {
       const prefix = "nxq_"
-      const randomPart = Math.random().toString(36).substring(2, 15) + 
-                        Math.random().toString(36).substring(2, 15)
-      return prefix + randomPart
+      const timestamp = Date.now().toString(36)
+      const random1 = Math.random().toString(36).substring(2, 15)
+      const random2 = Math.random().toString(36).substring(2, 15)
+      const checksum = (timestamp + random1 + random2).split('').reduce((a, b) => {
+        a = ((a << 5) - a) + b.charCodeAt(0)
+        return a & a
+      }, 0).toString(36)
+      return `${prefix}${timestamp}_${random1}${random2}_${checksum}`.substring(0, 64)
     }
 
     let apiKey = generateApiKey()

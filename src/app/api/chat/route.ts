@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { isValidLynxaModel, estimateTokens, type LynxaModel, type ChatMessage } from "@/lib/lynxa";
+import { RateLimiter } from "@/lib/rate-limiter";
 import { headers } from "next/headers";
 
 export async function POST(request: NextRequest) {
@@ -111,49 +112,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check rate limits
-    const now = new Date();
-    const minuteAgo = new Date(now.getTime() - 60 * 1000);
-    const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-    const [minuteUsage, hourUsage, dayUsage] = await Promise.all([
-      db.usageLog.count({
-        where: {
-          apiKeyId: keyRecord.id,
-          createdAt: { gte: minuteAgo }
-        }
-      }),
-      db.usageLog.count({
-        where: {
-          apiKeyId: keyRecord.id,
-          createdAt: { gte: hourAgo }
-        }
-      }),
-      db.usageLog.count({
-        where: {
-          apiKeyId: keyRecord.id,
-          createdAt: { gte: dayAgo }
-        }
-      })
-    ]);
-
-    if (minuteUsage >= keyRecord.rateLimitPerMinute) {
+    // Check rate limits using enhanced rate limiter
+    const rateLimiter = new RateLimiter();
+    const rateLimitCheck = await rateLimiter.checkRateLimit(keyRecord.id, keyRecord.userId);
+    
+    if (!rateLimitCheck.allowed) {
+      const retryAfter = Math.ceil((rateLimitCheck.resetTime.getTime() - Date.now()) / 1000);
       return NextResponse.json(
-        { error: "Rate limit exceeded: too many requests per minute" },
-        { status: 429 }
-      );
-    }
-    if (hourUsage >= keyRecord.rateLimitPerHour) {
-      return NextResponse.json(
-        { error: "Rate limit exceeded: too many requests per hour" },
-        { status: 429 }
-      );
-    }
-    if (dayUsage >= keyRecord.rateLimitPerDay) {
-      return NextResponse.json(
-        { error: "Rate limit exceeded: too many requests per day" },
-        { status: 429 }
+        { 
+          error: `Rate limit exceeded: too many requests per ${rateLimitCheck.limitType}`,
+          retryAfter,
+          resetTime: rateLimitCheck.resetTime.toISOString()
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': retryAfter.toString(),
+            'X-RateLimit-Limit': '1000',
+            'X-RateLimit-Remaining': rateLimitCheck.remaining.toString(),
+            'X-RateLimit-Reset': Math.ceil(rateLimitCheck.resetTime.getTime() / 1000).toString()
+          }
+        }
       );
     }
 
