@@ -8,12 +8,44 @@ export async function GET() {
   try {
     console.log("GET /api/keys - Starting request");
     
+    // For development/testing without OAuth, create a test user
+    if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID === 'your-google-client-id') {
+      const testUser = await db.user.upsert({
+        where: { email: 'test@example.com' },
+        update: {},
+        create: {
+          email: 'test@example.com',
+          name: 'Test User',
+          provider: 'dev',
+          providerId: 'test@example.com'
+        },
+        include: {
+          apiKeys: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              _count: {
+                select: { usageLogs: true }
+              }
+            }
+          }
+        }
+      });
+      
+      const apiKeysWithStats = testUser.apiKeys.map(key => ({
+        ...key,
+        usageCount: key._count.usageLogs,
+        isExpired: key.expires ? new Date(key.expires) < new Date() : false
+      }));
+      
+      return NextResponse.json(apiKeysWithStats);
+    }
+    
     const session = await getServerSession(authOptions)
     console.log("Session in /api/keys:", session ? 'Found' : 'Not found');
     
     if (!session?.user?.email) {
       console.log("No session or email found");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized - Please sign in" }, { status: 401 })
     }
 
     // Find or create the user
@@ -77,12 +109,18 @@ export async function POST(request: NextRequest) {
   try {
     console.log("API Key creation endpoint called");
     
-    const session = await getServerSession(authOptions)
-    console.log("Session:", session);
+    let userEmail = 'test@example.com';
     
-    if (!session?.user?.email) {
-      console.log("Unauthorized: No session or email");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use OAuth session if available
+    if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id') {
+      const session = await getServerSession(authOptions)
+      console.log("Session:", session);
+      
+      if (!session?.user?.email) {
+        console.log("Unauthorized: No session or email");
+        return NextResponse.json({ error: "Unauthorized - Please sign in" }, { status: 401 })
+      }
+      userEmail = session.user.email;
     }
 
     const body = await request.json()
@@ -96,7 +134,7 @@ export async function POST(request: NextRequest) {
 
     // Find or create the user
     let user = await db.user.findUnique({
-      where: { email: session.user.email }
+      where: { email: userEmail }
     })
     console.log("Found user:", user);
 
@@ -105,11 +143,11 @@ export async function POST(request: NextRequest) {
       try {
         user = await db.user.create({
           data: {
-            email: session.user.email,
-            name: session.user.name || "Unknown User",
-            image: session.user.image || "",
-            provider: "google",
-            providerId: session.user.email,
+            email: userEmail,
+            name: userEmail === 'test@example.com' ? 'Test User' : 'Unknown User',
+            image: '',
+            provider: userEmail === 'test@example.com' ? 'dev' : 'google',
+            providerId: userEmail,
             lastLoginAt: new Date()
           }
         })
