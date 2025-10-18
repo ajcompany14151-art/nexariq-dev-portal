@@ -14,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { LYNXA_MODEL_NAMES, type LynxaModel } from "@/lib/lynxa";
 import { 
   Send, 
   Copy, 
@@ -46,6 +47,7 @@ import {
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "next-auth/react";
+import { TypingIndicator, LoadingSpinner } from "@/components/ui/loading";
 
 interface Message {
   id: string;
@@ -66,11 +68,9 @@ interface Conversation {
 }
 
 interface PlaygroundSettings {
-  model: string;
+  model: LynxaModel;
   temperature: number;
   maxTokens: number;
-  topP: number;
-  topK: number;
   stream: boolean;
   systemPrompt: string;
 }
@@ -97,10 +97,8 @@ export function EnhancedApiPlayground() {
     model: "lynxa-pro",
     temperature: 0.7,
     maxTokens: 1024,
-    topP: 0.9,
-    topK: 40,
     stream: false,
-    systemPrompt: "You are Lynxa Pro, a helpful AI assistant. Provide clear, accurate, and thoughtful responses."
+    systemPrompt: "You are Lynxa Pro, an advanced AI assistant developed by Nexariq, a sub-brand of AJ STUDIOZ. Provide clear, accurate, and thoughtful responses."
   });
   const [activeTab, setActiveTab] = useState("chat");
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -206,7 +204,7 @@ export function EnhancedApiPlayground() {
         }))
       ];
 
-      const response = await fetch("https://lynxa-pro-backend.vercel.app/api/lynxa", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -216,8 +214,6 @@ export function EnhancedApiPlayground() {
           model: settings.model,
           max_tokens: settings.maxTokens,
           temperature: settings.temperature,
-          top_p: settings.topP,
-          top_k: settings.topK,
           stream: settings.stream,
           messages
         })
@@ -505,8 +501,10 @@ print(data['choices'][0]['message']['content'])`
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Bot className="w-5 h-5 text-blue-600" />
-                  <CardTitle>Lynxa Pro AI</CardTitle>
-                  <Badge variant="secondary">{settings.model}</Badge>
+                  <CardTitle>Lynxa Pro Playground</CardTitle>
+                  <Badge variant="secondary">
+                    {LYNXA_MODEL_NAMES[settings.model]?.name || settings.model}
+                  </Badge>
                   {selectedApiKey && (
                     <Badge variant="outline">
                       {apiKeys.find(k => k.id === selectedApiKey)?.name}
@@ -514,7 +512,7 @@ print(data['choices'][0]['message']['content'])`
                   )}
                 </div>
                 <CardDescription>
-                  Powered by advanced AI technology
+                  Powered by Nexariq (AJ STUDIOZ) - Advanced AI Technology
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col">
@@ -566,24 +564,7 @@ print(data['choices'][0]['message']['content'])`
                         </motion.div>
                       ))
                     )}
-                    {isGenerating && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex gap-3 justify-start"
-                      >
-                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                          <Bot className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" />
-                            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce delay-100" />
-                            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce delay-200" />
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
+                    {isGenerating && <TypingIndicator />}
                     <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
@@ -609,7 +590,7 @@ print(data['choices'][0]['message']['content'])`
                     className="self-end"
                   >
                     {isGenerating ? (
-                      <PauseCircle className="w-4 h-4" />
+                      <LoadingSpinner size="sm" />
                     ) : (
                       <Send className="w-4 h-4" />
                     )}
@@ -641,9 +622,15 @@ print(data['choices'][0]['message']['content'])`
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="lynxa-pro">Lynxa Pro</SelectItem>
-                          <SelectItem value="lynxa-pro-turbo">Lynxa Pro Turbo</SelectItem>
-                          <SelectItem value="lynxa-pro-lite">Lynxa Pro Lite</SelectItem>
+                          {Object.entries(LYNXA_MODEL_NAMES).map(([key, model]) => (
+                            <SelectItem key={key} value={key}>
+                              <div className="space-y-1">
+                                <div className="font-medium">{model.name}</div>
+                                <div className="text-xs text-muted-foreground">{model.description}</div>
+                                <div className="text-xs text-blue-600">Max tokens: {model.maxTokens}</div>
+                              </div>
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -680,35 +667,7 @@ print(data['choices'][0]['message']['content'])`
                   </div>
 
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Top P: {settings.topP}</Label>
-                      <Slider
-                        value={[settings.topP]}
-                        onValueChange={([value]) => setSettings(prev => ({ ...prev, topP: value }))}
-                        max={1}
-                        min={0}
-                        step={0.1}
-                        className="w-full"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Controls diversity via nucleus sampling
-                      </p>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label>Top K: {settings.topK}</Label>
-                      <Slider
-                        value={[settings.topK]}
-                        onValueChange={([value]) => setSettings(prev => ({ ...prev, topK: value }))}
-                        max={100}
-                        min={1}
-                        step={1}
-                        className="w-full"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Limits vocabulary to top K tokens
-                      </p>
-                    </div>
 
                     <div className="flex items-center space-x-2">
                       <Switch

@@ -5,8 +5,9 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   NEXTAUTH_URL: z.string().url().optional(),
   NEXTAUTH_SECRET: z.string().min(1),
-  GOOGLE_CLIENT_ID: z.string().min(1),
-  GOOGLE_CLIENT_SECRET: z.string().min(1),
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  DATABASE_URL: z.string().min(1).default("file:./dev.db"),
   NEXARIQ_BACKEND_URL: z.string().url().default("https://lynxa-pro-backend.vercel.app"),
 });
 

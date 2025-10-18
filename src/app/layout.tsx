@@ -5,6 +5,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Providers } from "@/components/session-provider";
 import ErrorBoundary from "@/components/error-boundary";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -69,10 +70,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground min-h-screen`}
       >
         <ErrorBoundary>
-          <Providers>
-            {children}
-            <Toaster />
-          </Providers>
+          <ThemeProvider>
+            <Providers>
+              {children}
+              <Toaster />
+            </Providers>
+          </ThemeProvider>
         </ErrorBoundary>
       </body>
     </html>

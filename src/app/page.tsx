@@ -7,12 +7,15 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ApiKeyDialog } from "@/components/api-key-dialog"
-import { AnalyticsPage } from "@/components/analytics-page"
+import { EnhancedAnalytics } from "@/components/enhanced-analytics"
 import { SettingsPage } from "@/components/settings-page"
 import { EnhancedApiPlayground } from "@/components/enhanced-api-playground"
 import { SplashScreen } from "@/components/splash-screen"
 import { UserProfile } from "@/components/user-profile"
+import { ApiDocumentation } from "@/components/api-documentation"
 import { signOut } from "next-auth/react"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { PageLoading, Skeleton } from "@/components/ui/loading"
 import { 
   Key, 
   BarChart3, 
@@ -116,17 +119,13 @@ export default function Home() {
     fetchApiKeys()
   }
 
-  // Show splash screen if not authenticated
+  // Show advanced loading screen if not authenticated
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg animate-pulse">
-            <Rocket className="w-8 h-8 text-white" />
-          </div>
-          <p className="text-white mt-4">Loading...</p>
-        </div>
-      </div>
+      <PageLoading 
+        title="Nexariq Developer Portal"
+        description="Loading your AI development experience..."
+      />
     )
   }
 
@@ -155,6 +154,7 @@ export default function Home() {
             </Badge>
           </div>
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             <Button variant="ghost" size="sm" className="hidden sm:flex" onClick={() => setActiveTab("settings")}>
               <Settings className="w-4 h-4 mr-2" />
               Settings
@@ -231,8 +231,8 @@ export default function Home() {
                     <div>
                       <h1 className="text-4xl font-bold mb-4">Welcome to Nexariq</h1>
                       <p className="text-blue-100 text-lg mb-6 max-w-2xl">
-                        Access the power of Lynxa Pro AI with our comprehensive developer portal. 
-                        Build, test, and deploy AI-powered applications with enterprise-grade security and analytics.
+                        Access Lynxa Pro, the advanced AI assistant developed by Nexariq (AJ STUDIOZ). 
+                        Build, test, and deploy AI-powered applications with enterprise-grade security and real data analytics.
                       </p>
                       <div className="flex flex-wrap gap-3">
                         <Button variant="secondary" className="bg-white text-blue-600 hover:bg-blue-50 shadow-lg">
@@ -396,7 +396,7 @@ export default function Home() {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-3xl font-bold mb-2">Lynxa Pro Playground</h2>
-                  <p className="text-muted-foreground text-lg">Test the Lynxa Pro AI model in real-time</p>
+                  <p className="text-muted-foreground text-lg">Test Lynxa Pro AI by Nexariq (AJ STUDIOZ) in real-time</p>
                 </div>
                 <EnhancedApiPlayground />
               </div>
@@ -463,50 +463,9 @@ export default function Home() {
               </div>
             )}
 
-            {activeTab === "analytics" && <AnalyticsPage />}
+            {activeTab === "analytics" && <EnhancedAnalytics />}
 
-            {activeTab === "docs" && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-3xl font-bold mb-2">Documentation</h2>
-                  <p className="text-muted-foreground text-lg">Learn how to integrate with Lynxa Pro API</p>
-                </div>
-
-                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm dark:bg-slate-900/80">
-                  <CardHeader>
-                    <CardTitle className="text-lg font-semibold">Getting Started</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      <div>
-                        <h3 className="font-semibold mb-3 text-lg">API Endpoint</h3>
-                        <code className="block p-4 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm font-mono">
-                          https://lynxa-pro-backend.vercel.app/api/lynxa
-                        </code>
-                      </div>
-                      <div>
-                        <h3 className="font-semibold mb-3 text-lg">Example Request</h3>
-                        <pre className="block p-4 bg-slate-100 dark:bg-slate-800 rounded-lg text-sm overflow-x-auto font-mono">
-{`curl -X POST https://lynxa-pro-backend.vercel.app/api/lynxa \\
-  -H "Authorization: Bearer <your-api-key>" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "model": "lynxa-pro",
-    "max_tokens": 1024,
-    "stream": false,
-    "messages": [
-      {"role": "user", "content": "Hey Lynxa, who are you?"}
-    ]
-  }'`}
-                        </pre>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <EnhancedApiPlayground />
-              </div>
-            )}
+            {activeTab === "docs" && <ApiDocumentation />}
 
             {activeTab === "settings" && <SettingsPage />}
 

@@ -1,15 +1,16 @@
-# Nexariq Developer Portal
+# Nexariq Developer Portal - Groq Integration
 
-A comprehensive, production-ready developer portal for Nexariq's Lynxa Pro AI model. Built with Next.js 15, TypeScript, and modern web technologies.
+A comprehensive, production-ready developer portal with **real Groq API integration**. Built with Next.js 15, TypeScript, and modern web technologies, featuring 8 high-performance AI models with lightning-fast inference.
 
 ## 🚀 Features
 
 ### Core Functionality
-- **API Key Management**: Generate, manage, and revoke API keys with 30-day expiration
-- **Real-time Analytics**: Monitor API usage, token consumption, and performance metrics
-- **Interactive Playground**: Test the Lynxa Pro AI model directly in your browser
-- **Comprehensive Documentation**: Complete API reference with code examples
-- **Corporate-Grade UI**: Modern, responsive interface inspired by Google AI Studio
+- **Real Groq API Integration**: 8 AI models (Llama 3.1, Mixtral, Gemma) with actual API calls
+- **API Key Management**: Generate, manage, and revoke API keys with real database backend
+- **Real-time Analytics**: Monitor actual API usage, token consumption, and performance metrics
+- **Interactive AI Playground**: Test Groq models directly with real responses
+- **Comprehensive Documentation**: Complete API reference with working code examples
+- **Corporate-Grade UI**: Modern, responsive interface with dark/light mode
 
 ### Technical Features
 - **Authentication**: NextAuth.js with multiple providers (Google, GitHub, Credentials)
@@ -28,12 +29,18 @@ A comprehensive, production-ready developer portal for Nexariq's Lynxa Pro AI mo
 - **State Management**: React hooks and NextAuth.js
 - **UI Components**: Complete shadcn/ui component library
 
-### Backend Integration
-- **API Endpoint**: `https://lynxa-pro-backend.vercel.app/api/lynxa`
-- **Authentication**: Bearer token with API key validation
-- **Key Generation**: `/api/generate-key` endpoint
-- **Key Revocation**: `/api/revoke-key` endpoint
-- **Usage Logging**: Automatic API call tracking
+### Groq Integration
+- **Real API Calls**: Direct integration with Groq's inference API
+- **8 AI Models**: Llama 3.1 (405B, 70B, 8B), Mixtral 8x7B, Gemma (7B, 9B), Tool Use models
+- **Lightning Speed**: Powered by Groq's specialized LPU hardware
+- **Token Tracking**: Real-time usage monitoring and billing calculation
+- **Rate Limiting**: Per-key limits (60/min, 1K/hour, 10K/day)
+
+### API Endpoints
+- **Chat Completions**: `/api/chat` - Real Groq model inference
+- **API Key Management**: `/api/keys` - Generate and manage access keys
+- **Analytics**: `/api/analytics` - Usage statistics and metrics
+- **Health Check**: `/api/health` - System status monitoring
 
 ### Database Schema
 - **Users**: Authentication and role management
@@ -68,9 +75,17 @@ cp .env.example .env.local
 
 4. Configure environment variables:
 ```env
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-secret-key
-NEXARIQ_BACKEND_URL=https://lynxa-pro-backend.vercel.app
+# Required
+DATABASE_URL="postgresql://username:password@hostname:port/database"
+NEXTAUTH_SECRET="your-super-secret-jwt-secret-here"
+NEXTAUTH_URL="http://localhost:3000"
+GROQ_API_KEY="gsk_your-groq-api-key-here"
+
+# Optional (for OAuth)
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+GITHUB_ID="your-github-app-id"
+GITHUB_SECRET="your-github-app-secret"
 ```
 
 5. Initialize the database:
@@ -89,13 +104,14 @@ npm run dev
 ## 🔧 Configuration
 
 ### Environment Variables
+- `DATABASE_URL`: PostgreSQL database connection string
 - `NEXTAUTH_URL`: Your application URL
-- `NEXTAUTH_SECRET`: Secret for NextAuth.js
-- `NEXARIQ_BACKEND_URL`: Lynxa Pro backend URL
-- `GOOGLE_CLIENT_ID`: Google OAuth client ID
-- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
-- `GITHUB_ID`: GitHub OAuth client ID
-- `GITHUB_SECRET`: GitHub OAuth client secret
+- `NEXTAUTH_SECRET`: Secret for NextAuth.js session encryption
+- `GROQ_API_KEY`: Your Groq API key (required for AI functionality)
+- `GOOGLE_CLIENT_ID`: Google OAuth client ID (optional)
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret (optional)
+- `GITHUB_ID`: GitHub OAuth client ID (optional)
+- `GITHUB_SECRET`: GitHub OAuth client secret (optional)
 
 ### Database Setup
 The application uses Prisma with SQLite for development. To use PostgreSQL in production:
@@ -124,18 +140,20 @@ npm run db:migrate
 5. Copy and securely store the generated key
 
 ### API Usage
-Use your API key to access the Lynxa Pro model:
+Use your API key to access Groq AI models:
 
 ```bash
-curl -X POST https://lynxa-pro-backend.vercel.app/api/lynxa \
+curl -X POST http://localhost:3000/api/chat \
   -H "Authorization: Bearer <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "lynxa-pro",
+    "model": "llama-3.1-70b-versatile",
     "max_tokens": 1024,
-    "stream": false,
+    "temperature": 0.7,
+    "top_p": 0.9,
     "messages": [
-      {"role": "user", "content": "Hey Lynxa, who are you?"}
+      {"role": "system", "content": "You are a helpful AI assistant."},
+      {"role": "user", "content": "Explain quantum computing in simple terms"}
     ]
   }'
 ```
