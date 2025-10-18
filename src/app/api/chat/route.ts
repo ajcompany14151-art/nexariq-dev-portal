@@ -136,12 +136,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Make the actual API call to Lynxa-pro-backend
-    const response = await fetch('https://lynxa-pro-backend.vercel.app/api/lynxa', {
+    // Make the API call to local Lynxa Pro backend
+    const baseUrl = process.env.NEXTAUTH_URL || `http://${request.headers.get('host')}`
+    const response = await fetch(`${baseUrl}/api/lynxa`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${keyRecord.key}`
       },
       body: JSON.stringify({
         model: 'lynxa-pro',
