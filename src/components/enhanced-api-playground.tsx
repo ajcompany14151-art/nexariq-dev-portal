@@ -150,7 +150,6 @@ export function EnhancedApiPlayground() {
       toast.error("Failed to load API keys");
     }
   };
-  };
 
   const createNewConversation = () => {
     const newConversation: Conversation = {
