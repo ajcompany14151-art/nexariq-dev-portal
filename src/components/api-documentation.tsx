@@ -45,8 +45,8 @@ export function ApiDocumentation() {
     
     switch (language) {
       case "curl":
-        return `curl -X POST https://lynxa-pro-backend.vercel.app/api/lynxa \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
+        return `curl -X POST https://api.ajstudioz.dev/api/chat \\
+  -H "X-API-Key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "lynxa-pro",
@@ -126,25 +126,36 @@ print(data['choices'][0]['message']['content'])`;
   };
 
   const responseExample = `{
-  "id": "msg_abc123def456",
-  "object": "chat.completion",
-  "model": "lynxa-pro",
-  "choices": [
+  "id": "resp_abc123def456",
+  "object": "response",
+  "status": "completed",
+  "created_at": 1699876543,
+  "model": "kimi",
+  "output": [
     {
-      "index": 0,
-      "message": {
-        "role": "assistant",
-        "content": "Hello! I'm Lynxa Pro, an advanced AI assistant developed by Nexariq, a sub-brand of AJ STUDIOZ. I'm here to help you with your questions and provide intelligent assistance."
-      },
-      "finish_reason": "stop"
+      "type": "message",
+      "id": "msg_xyz789abc123",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Hello! I'm Lynxa Pro, an advanced AI assistant developed by Nexariq (AJ STUDIOZ). I specialize in providing intelligent, accurate, and helpful responses across all domains of knowledge."
+        }
+      ]
     }
   ],
   "usage": {
-    "prompt_tokens": 45,
-    "completion_tokens": 28,
-    "total_tokens": 73
+    "input_tokens": 45,
+    "output_tokens": 38,
+    "total_tokens": 83
   },
-  "developer": "Nexariq - AJ STUDIOZ"
+  "metadata": {
+    "user_id": "user_123",
+    "model_provider": "groq",
+    "response_time_ms": 450,
+    "deployment": "vercel_cloud"
+  }
 }`;
 
   return (
