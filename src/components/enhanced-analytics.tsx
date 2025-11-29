@@ -1,12 +1,14 @@
 // src/components/enhanced-analytics.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import { 
   AreaChart, 
   Area, 
@@ -24,7 +26,7 @@ import {
   Tooltip,
   Legend
 } from "recharts";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -34,9 +36,20 @@ import {
   Clock,
   Target,
   Globe,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Cpu,
+  Database,
+  Network,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { LoadingSpinner, Skeleton } from "@/components/ui/loading";
+import { analyticsService, UsageMetrics } from "@/lib/analytics-service";
 
 interface AnalyticsData {
   summary: {
