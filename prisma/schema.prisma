@@ -1,4 +1,4 @@
-// This is your Prisma schema file,
+// This is your Prisma schema file for NexarIQ AI Platform
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
@@ -11,82 +11,10 @@ datasource db {
   directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
-// Existing models (preserve existing data)
-model Fragment {
-  id         String   @id
-  messageId  String   @unique
-  sandboxUrl String
-  title      String
-  files      Json
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime
-  Message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-}
+// ================================
+// 🔹 USER MANAGEMENT
+// ================================
 
-model Message {
-  id        String      @id
-  content   String
-  role      MessageRole
-  type      MessageType
-  createdAt DateTime    @default(now())
-  updatedAt DateTime
-  projectId String
-  Fragment  Fragment?
-  Project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-}
-
-model Project {
-  id        String    @id
-  name      String
-  userId    String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime
-  Message   Message[]
-}
-
-model Usage {
-  key    String    @id
-  points Int
-  expire DateTime?
-}
-
-// NextAuth.js models
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
-
-// User model with enhanced features for API management
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -112,13 +40,59 @@ model User {
   @@map("users")
 }
 
-// API Key model with rate limiting
+// ================================
+// 🔹 AUTHENTICATION (NextAuth)
+// ================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+// ================================
+// 🔹 API KEY MANAGEMENT
+// ================================
+
 model ApiKey {
   id          String      @id @default(cuid())
   name        String
   key         String      @unique
   userId      String
-  scopes      String      // JSON string of scopes
+  scopes      String      @default("[]") // JSON string of scopes
   environment Environment @default(SANDBOX)
   isActive    Boolean     @default(true)
   lastUsed    DateTime?
@@ -126,7 +100,7 @@ model ApiKey {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   
-  // Rate limiting
+  // Rate limiting fields
   rateLimitPerMinute  Int      @default(60)    // requests per minute
   rateLimitPerHour    Int      @default(1000)  // requests per hour
   rateLimitPerDay     Int      @default(10000) // requests per day
@@ -139,7 +113,10 @@ model ApiKey {
   @@map("api_keys")
 }
 
-// Usage Log model for tracking API usage
+// ================================
+// 🔹 USAGE TRACKING
+// ================================
+
 model UsageLog {
   id           String   @id @default(cuid())
   apiKeyId     String
@@ -160,26 +137,32 @@ model UsageLog {
   @@map("usage_logs")
 }
 
-// Rate Limit model for tracking API usage limits
+// ================================
+// 🔹 RATE LIMITING
+// ================================
+
 model RateLimit {
-  id          String   @id @default(cuid())
-  windowType  String   // minute, hour, day
-  windowStart DateTime @default(now())
-  requestCount Int     @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  windowType   String   // minute, hour, day
+  windowStart  DateTime @default(now())
+  requestCount Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  apiKeyId     String
+  userId       String
   
   // Relations
-  apiKeyId    String
-  apiKey      ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey       ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   @@unique([apiKeyId, windowType, windowStart])
   @@map("rate_limits")
 }
 
-// Subscription model for managing user plans
+// ================================
+// 🔹 SUBSCRIPTION MANAGEMENT
+// ================================
+
 model Subscription {
   id                   String           @id @default(cuid())
   userId               String
@@ -199,7 +182,10 @@ model Subscription {
   @@map("subscriptions")
 }
 
-// IP Whitelist model for security
+// ================================
+// 🔹 SECURITY FEATURES
+// ================================
+
 model IpWhitelist {
   id        String   @id @default(cuid())
   userId    String
@@ -215,16 +201,9 @@ model IpWhitelist {
   @@map("ip_whitelists")
 }
 
-// Enums
-enum MessageRole {
-  USER
-  ASSISTANT
-}
-
-enum MessageType {
-  RESULT
-  ERROR
-}
+// ================================
+// 🔹 ENUMS
+// ================================
 
 enum UserRole {
   ADMIN
