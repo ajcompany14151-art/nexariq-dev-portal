@@ -137,17 +137,6 @@ export function EnhancedApiPlayground() {
     } catch (error) {
       console.error("Failed to fetch API keys:", error);
       toast.error("Failed to load API keys");
-        const activeKeys = data.filter((key: ApiKey) => key.isActive);
-        setApiKeys(activeKeys);
-        
-        // Auto-select first active key if none selected
-        if (activeKeys.length > 0 && !selectedApiKey) {
-          setSelectedApiKey(activeKeys[0].id);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch API keys:", error);
-      toast.error("Failed to load API keys");
     }
   };
 
