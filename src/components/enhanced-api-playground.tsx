@@ -93,16 +93,18 @@ export function EnhancedApiPlayground() {
   const [inputMessage, setInputMessage] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [settings, setSettings] = useState<PlaygroundSettings>({
-    model: "lynxa-pro",
-    temperature: 0.7,
-    maxTokens: 1024,
-    stream: false,
-    systemPrompt: "You are Lynxa Pro, an advanced AI assistant developed by Nexariq, a sub-brand of AJ STUDIOZ. Provide clear, accurate, and thoughtful responses."
-  });
-  const [activeTab, setActiveTab] = useState("chat");
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [selectedApiKey, setSelectedApiKey] = useState<string>("");
+  const [responseTime, setResponseTime] = useState<number | null>(null);
+  const [tokensUsed, setTokensUsed] = useState({ input: 0, output: 0 });
+  const [settings, setSettings] = useState<PlaygroundSettings>({
+    model: "kimi",
+    temperature: 0.7,
+    maxTokens: 2000,
+    stream: true,
+    systemPrompt: "You are Lynxa Pro, an advanced AI assistant developed by Nexariq (AJ STUDIOZ). You provide intelligent, helpful, and accurate responses across all domains."
+  });
+  const [activeTab, setActiveTab] = useState("chat");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -124,6 +126,18 @@ export function EnhancedApiPlayground() {
       const response = await fetch("/api/keys");
       if (response.ok) {
         const data = await response.json();
+        const activeKeys = data.filter((key: ApiKey) => key.isActive);
+        setApiKeys(activeKeys);
+        
+        // Auto-select first active key if none selected
+        if (activeKeys.length > 0 && !selectedApiKey) {
+          setSelectedApiKey(activeKeys[0].id);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch API keys:", error);
+      toast.error("Failed to load API keys");
+    }
         setApiKeys(data);
         if (data.length > 0 && !selectedApiKey) {
           setSelectedApiKey(data[0].id);
@@ -204,34 +218,66 @@ export function EnhancedApiPlayground() {
         }))
       ];
 
-      const response = await fetch("/api/chat", {
+      const startTime = Date.now();
+      
+      const response = await fetch("https://api.ajstudioz.dev/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey.key}`
+          "X-API-Key": apiKey.key
         },
         body: JSON.stringify({
           model: settings.model,
-          max_tokens: settings.maxTokens,
+          messages,
           temperature: settings.temperature,
-          stream: settings.stream,
-          messages
+          max_output_tokens: settings.maxTokens,
+          stream: settings.stream
         })
       });
 
+      const endTime = Date.now();
+      setResponseTime(endTime - startTime);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        const errorData = await response.text();
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const parsed = JSON.parse(errorData);
+          errorMessage = parsed.error || errorMessage;
+        } catch {}
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       
+      // Extract content based on the response format
+      let content = "";
+      let inputTokens = 0;
+      let outputTokens = 0;
+
+      if (data.output && data.output[0] && data.output[0].content && data.output[0].content[0]) {
+        content = data.output[0].content[0].text;
+      } else if (data.choices && data.choices[0] && data.choices[0].message) {
+        content = data.choices[0].message.content;
+      } else if (data.content) {
+        content = data.content;
+      } else {
+        content = "I apologize, but I couldn't generate a response. Please try again.";
+      }
+
+      // Extract token usage
+      if (data.usage) {
+        inputTokens = data.usage.input_tokens || 0;
+        outputTokens = data.usage.output_tokens || 0;
+        setTokensUsed({ input: inputTokens, output: outputTokens });
+      }
+      
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.choices?.[0]?.message?.content || data.content || "I apologize, but I couldn't generate a response. Please try again.",
+        content: content,
         timestamp: new Date(),
-        tokens: data.usage?.total_tokens || 0,
+        tokens: inputTokens + outputTokens,
         model: data.model || settings.model
       };
 
@@ -345,53 +391,56 @@ export function EnhancedApiPlayground() {
 
     switch (language) {
       case "curl":
-        return `curl -X POST https://lynxa-pro-backend.vercel.app/api/lynxa \\
-  -H "Authorization: Bearer ${apiKey?.key || '<your-api-key>'}" \\
+        return `curl -X POST https://api.ajstudioz.dev/api/chat \\
+  -H "X-API-Key: ${apiKey?.key || '<your-api-key>'}" \\
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify({
     model: settings.model,
-    max_tokens: settings.maxTokens,
+    messages,
     temperature: settings.temperature,
-    messages
+    max_output_tokens: settings.maxTokens,
+    stream: settings.stream
   }, null, 2)}'`
       
       case "javascript":
-        return `const response = await fetch('https://lynxa-pro-backend.vercel.app/api/lynxa', {
+        return `const response = await fetch('https://api.ajstudioz.dev/api/chat', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer ${apiKey?.key || '<your-api-key>'}',
+    'X-API-Key': '${apiKey?.key || '<your-api-key>'}',
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
     model: '${settings.model}',
-    max_tokens: ${settings.maxTokens},
+    messages: ${JSON.stringify(messages)},
     temperature: ${settings.temperature},
-    messages: ${JSON.stringify(messages)}
+    max_output_tokens: ${settings.maxTokens},
+    stream: ${settings.stream}
   })
 });
 
 const data = await response.json();
-console.log(data.choices[0].message.content);`
+console.log(data.output[0].content[0].text);`
       
       case "python":
         return `import requests
 
 response = requests.post(
-    'https://lynxa-pro-backend.vercel.app/api/lynxa',
+    'https://api.ajstudioz.dev/api/chat',
     headers={
-        'Authorization': 'Bearer ${apiKey?.key || '<your-api-key>'}',
+        'X-API-Key': '${apiKey?.key || '<your-api-key>'}',
         'Content-Type': 'application/json'
     },
     json={
         'model': '${settings.model}',
-        'max_tokens': ${settings.maxTokens},
+        'messages': ${JSON.stringify(messages)},
         'temperature': ${settings.temperature},
-        'messages': ${JSON.stringify(messages)}
+        'max_output_tokens': ${settings.maxTokens},
+        'stream': ${settings.stream}
     }
 )
 
 data = response.json()
-print(data['choices'][0]['message']['content'])`
+print(data['output'][0]['content'][0]['text'])`
       
       default:
         return ""
@@ -534,9 +583,22 @@ print(data['choices'][0]['message']['content'])`
                       {apiKeys.find(k => k.id === selectedApiKey)?.name}
                     </Badge>
                   )}
+                  {/* Performance Metrics */}
+                  {responseTime && (
+                    <Badge variant="secondary" className="ml-auto">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {responseTime}ms
+                    </Badge>
+                  )}
+                  {tokensUsed.input > 0 && (
+                    <Badge variant="outline">
+                      <Zap className="w-3 h-3 mr-1" />
+                      {tokensUsed.input + tokensUsed.output} tokens
+                    </Badge>
+                  )}
                 </div>
                 <CardDescription>
-                  Powered by Nexariq (AJ STUDIOZ) - Advanced AI Technology
+                  Powered by Nexariq (AJ STUDIOZ) - Real-time AI Testing Environment
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col">
@@ -646,15 +708,41 @@ print(data['choices'][0]['message']['content'])`
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(LYNXA_MODEL_NAMES).map(([key, model]) => (
-                            <SelectItem key={key} value={key}>
-                              <div className="space-y-1">
-                                <div className="font-medium">{model.name}</div>
-                                <div className="text-xs text-muted-foreground">{model.description}</div>
-                                <div className="text-xs text-blue-600">Max tokens: {model.maxTokens}</div>
-                              </div>
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="kimi">
+                            <div className="space-y-1">
+                              <div className="font-medium">Kimi K2 Instruct (24/7)</div>
+                              <div className="text-xs text-muted-foreground">Advanced reasoning and analysis</div>
+                              <div className="text-xs text-blue-600">Max tokens: 128K</div>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="claude-3.5-sonnet">
+                            <div className="space-y-1">
+                              <div className="font-medium">Claude 3.5 Sonnet</div>
+                              <div className="text-xs text-muted-foreground">Most intelligent model</div>
+                              <div className="text-xs text-blue-600">Max tokens: 200K</div>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="gpt-4o">
+                            <div className="space-y-1">
+                              <div className="font-medium">GPT-4o</div>
+                              <div className="text-xs text-muted-foreground">Multimodal flagship model</div>
+                              <div className="text-xs text-blue-600">Max tokens: 128K</div>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="llama-3.1-8b-instant">
+                            <div className="space-y-1">
+                              <div className="font-medium">Llama 3.1 8B</div>
+                              <div className="text-xs text-muted-foreground">Fast and efficient</div>
+                              <div className="text-xs text-blue-600">Max tokens: 128K</div>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="gemini-1.5-pro">
+                            <div className="space-y-1">
+                              <div className="font-medium">Gemini 1.5 Pro</div>
+                              <div className="text-xs text-muted-foreground">Google's most capable model</div>
+                              <div className="text-xs text-blue-600">Max tokens: 1M</div>
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
